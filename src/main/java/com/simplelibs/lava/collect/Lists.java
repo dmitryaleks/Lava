@@ -48,8 +48,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
- * Static utility methods pertaining to {@link List} instances. Also see this class's counterparts
- * {@code Sets}, {@link Maps} and {@code Queues}.
+ * Static utility methods pertaining to {@link List} instances. Also see this class's counterpart
+ * {@link Maps}.
  *
  * <p>See the Guava User Guide article on <a href=
  * "https://github.com/google/guava/wiki/CollectionUtilitiesExplained#lists"> {@code Lists}</a>.
@@ -93,7 +93,7 @@ public final class Lists {
    */
   @SafeVarargs
   public static <E> ArrayList<E> newArrayList(E... elements) {
-    checkNotNull(elements); // for GWT
+    checkNotNull(elements);
     // Avoid integer overflow when a large array is passed in
     int capacity = computeArrayListCapacity(elements.length);
     ArrayList<E> list = new ArrayList<>(capacity);
@@ -103,10 +103,10 @@ public final class Lists {
 
   /**
    * Creates a <i>mutable</i> {@code ArrayList} instance containing the given elements; a very thin
-   * shortcut for creating an empty list then calling {@code Iterables.addAll}.
+   * shortcut for creating an empty list and adding each element.
    *
    * <p><b>Note:</b> if mutability is not required and the elements are non-null, use {@link
-   * ImmutableList#copyOf(Iterable)} instead. (Or, change {@code elements} to be a {@code FluentIterable} and call {@code elements.toList()}.)
+   * ImmutableList#copyOf(Iterable)} instead.
    *
    * <p><b>Note for Java 7 and later:</b> if {@code elements} is a {@link Collection}, you don't
    * need this method. Use the {@code ArrayList} {@linkplain ArrayList#ArrayList(Collection)
@@ -114,7 +114,7 @@ public final class Lists {
    * syntax</a>.
    */
   public static <E> ArrayList<E> newArrayList(Iterable<? extends E> elements) {
-    checkNotNull(elements); // for GWT
+    checkNotNull(elements);
     // Let ArrayList's sizing logic work, if possible
     return (elements instanceof Collection)
         ? new ArrayList<>(Collections2.cast(elements))
@@ -136,8 +136,6 @@ public final class Lists {
 
   static int computeArrayListCapacity(int arraySize) {
     checkNonnegative(arraySize, "arraySize");
-
-    // TODO(kevinb): Figure out the right behavior, and document it
     return CollectMath.saturatedCast(5L + arraySize + (arraySize / 10));
   }
 
@@ -158,7 +156,7 @@ public final class Lists {
    * @throws IllegalArgumentException if {@code initialArraySize} is negative
    */
   public static <E> ArrayList<E> newArrayListWithCapacity(int initialArraySize) {
-    checkNonnegative(initialArraySize, "initialArraySize"); // for GWT.
+    checkNonnegative(initialArraySize, "initialArraySize");
     return new ArrayList<>(initialArraySize);
   }
 
@@ -202,10 +200,10 @@ public final class Lists {
 
   /**
    * Creates a <i>mutable</i> {@code LinkedList} instance containing the given elements; a very thin
-   * shortcut for creating an empty list then calling {@code Iterables.addAll}.
+   * shortcut for creating an empty list and adding each element.
    *
    * <p><b>Note:</b> if mutability is not required and the elements are non-null, use {@link
-   * ImmutableList#copyOf(Iterable)} instead. (Or, change {@code elements} to be a {@code FluentIterable} and call {@code elements.toList()}.)
+   * ImmutableList#copyOf(Iterable)} instead.
    *
    * <p><b>Performance note:</b> {@link ArrayList} and {@link java.util.ArrayDeque} consistently
    * outperform {@code LinkedList} except in certain rare and specific situations. Unless you have
@@ -401,7 +399,8 @@ public final class Lists {
    * @throws IllegalArgumentException if the size of the cartesian product would be greater than
    *     {@link Integer#MAX_VALUE}
    * @throws NullPointerException if {@code lists}, any one of the {@code lists}, or any element of
-   *     a provided list is null
+   *     a provided list is null (axes after the first empty one are not checked, so for example
+   *     {@code cartesianProduct(emptyList(), asList(1, null))} returns an empty list)
    * @since 19.0
    */
   public static <B> List<List<B>> cartesianProduct(List<? extends List<? extends B>> lists) {
@@ -459,7 +458,8 @@ public final class Lists {
    * @throws IllegalArgumentException if the size of the cartesian product would be greater than
    *     {@link Integer#MAX_VALUE}
    * @throws NullPointerException if {@code lists}, any one of the {@code lists}, or any element of
-   *     a provided list is null
+   *     a provided list is null (axes after the first empty one are not checked, so for example
+   *     {@code cartesianProduct(emptyList(), asList(1, null))} returns an empty list)
    * @since 19.0
    */
   @SafeVarargs
@@ -482,10 +482,8 @@ public final class Lists {
    * function} should be fast. To avoid lazy evaluation when the returned list doesn't need to be a
    * view, copy the returned list into a new list of your choosing.
    *
-   * <p>If {@code fromList} implements {@link RandomAccess}, so will the returned list. The returned
-   * list is threadsafe if the supplied list and function are.
-   *
-   * <p>If only a {@code Collection} or {@code Iterable} input is available, use {@code Collections2.transform} or {@code Iterables.transform}.
+   * <p>If {@code fromList} implements {@link RandomAccess}, so will the returned list. Like every
+   * live view in Lava, the returned list must be confined to one thread.
    *
    * <p><b>Note:</b> serializing the returned list is implemented by serializing {@code fromList},
    * its contents, and {@code function} -- <i>not</i> by serializing the transformed values. This
@@ -632,7 +630,11 @@ public final class Lists {
    * @param list the list to return consecutive sublists of
    * @param size the desired size of each sublist (the last may be smaller)
    * @return a list of consecutive sublists
-   * @throws IllegalArgumentException if {@code partitionSize} is nonpositive
+   * <p>Unlike Guava 27.0.1, which computes the end of a sublist in {@code int} arithmetic and
+   * fails with {@code IllegalArgumentException} for lists of more than 2<sup>30</sup> elements
+   * partitioned into chunks of about 2<sup>30</sup>, Lava returns the correct sublist.
+   *
+   * @throws IllegalArgumentException if {@code size} is nonpositive
    */
   public static <T> List<List<T>> partition(List<T> list, int size) {
     checkNotNull(list);
@@ -721,7 +723,7 @@ public final class Lists {
 
     @Override
     public ImmutableList<Character> subList(int fromIndex, int toIndex) {
-      checkPositionIndexes(fromIndex, toIndex, size()); // for GWT
+      checkPositionIndexes(fromIndex, toIndex, size());
       return charactersOf(string.substring(fromIndex, toIndex));
     }
 
@@ -732,7 +734,7 @@ public final class Lists {
 
     @Override
     public Character get(int index) {
-      checkElementIndex(index, size()); // for GWT
+      checkElementIndex(index, size());
       return string.charAt(index);
     }
 
@@ -751,7 +753,7 @@ public final class Lists {
 
     @Override
     public Character get(int index) {
-      checkElementIndex(index, size()); // for GWT
+      checkElementIndex(index, size());
       return sequence.charAt(index);
     }
 
@@ -820,11 +822,6 @@ public final class Lists {
     @Override
     public T remove(int index) {
       return forwardList.remove(reverseIndex(index));
-    }
-
-    @Override
-    protected void removeRange(int fromIndex, int toIndex) {
-      subList(fromIndex, toIndex).clear();
     }
 
     @Override
@@ -930,13 +927,9 @@ public final class Lists {
 
   /** An implementation of {@link List#hashCode()}. */
   static int hashCodeImpl(List<?> list) {
-    // TODO(lowasser): worth optimizing for RandomAccess?
     int hashCode = 1;
     for (Object o : list) {
       hashCode = 31 * hashCode + (o == null ? 0 : o.hashCode());
-
-      hashCode = ~~hashCode;
-      // needed to deal with GWT integer overflow
     }
     return hashCode;
   }
@@ -1041,92 +1034,5 @@ public final class Lists {
       }
     }
     return -1;
-  }
-
-  /** Returns an implementation of {@link List#listIterator(int)}. */
-  static <E> ListIterator<E> listIteratorImpl(List<E> list, int index) {
-    return new AbstractListWrapper<>(list).listIterator(index);
-  }
-
-  /** An implementation of {@link List#subList(int, int)}. */
-  static <E> List<E> subListImpl(final List<E> list, int fromIndex, int toIndex) {
-    List<E> wrapper;
-    if (list instanceof RandomAccess) {
-      wrapper =
-          new RandomAccessListWrapper<E>(list) {
-            @Override
-            public ListIterator<E> listIterator(int index) {
-              return backingList.listIterator(index);
-            }
-
-            private static final long serialVersionUID = 0;
-          };
-    } else {
-      wrapper =
-          new AbstractListWrapper<E>(list) {
-            @Override
-            public ListIterator<E> listIterator(int index) {
-              return backingList.listIterator(index);
-            }
-
-            private static final long serialVersionUID = 0;
-          };
-    }
-    return wrapper.subList(fromIndex, toIndex);
-  }
-
-  private static class AbstractListWrapper<E> extends AbstractList<E> {
-    final List<E> backingList;
-
-    AbstractListWrapper(List<E> backingList) {
-      this.backingList = checkNotNull(backingList);
-    }
-
-    @Override
-    public void add(int index, E element) {
-      backingList.add(index, element);
-    }
-
-    @Override
-    public boolean addAll(int index, Collection<? extends E> c) {
-      return backingList.addAll(index, c);
-    }
-
-    @Override
-    public E get(int index) {
-      return backingList.get(index);
-    }
-
-    @Override
-    public E remove(int index) {
-      return backingList.remove(index);
-    }
-
-    @Override
-    public E set(int index, E element) {
-      return backingList.set(index, element);
-    }
-
-    @Override
-    public boolean contains(Object o) {
-      return backingList.contains(o);
-    }
-
-    @Override
-    public int size() {
-      return backingList.size();
-    }
-  }
-
-  private static class RandomAccessListWrapper<E> extends AbstractListWrapper<E>
-      implements RandomAccess {
-    RandomAccessListWrapper(List<E> backingList) {
-      super(backingList);
-    }
-  }
-
-  /** Used to avoid http://bugs.sun.com/view_bug.do?bug_id=6558557 */
-  static <T> List<T> cast(Iterable<T> iterable) {
-    return (List<T>) iterable;
   }
 }

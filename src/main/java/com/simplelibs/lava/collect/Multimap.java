@@ -131,12 +131,10 @@ import java.util.function.BiConsumer;
  *
  * <h2>Implementations</h2>
  *
- * <p>As always, prefer the immutable implementations, {@code ImmutableListMultimap} and {@link
- * ImmutableSetMultimap}. General-purpose mutable implementations are listed above under "All Known
- * Implementing Classes". You can also create a <i>custom</i> multimap, backed by any {@code Map}
- * and {@link Collection} types, using the {@code Multimaps.newMultimap}
- * family of methods. Finally, another popular way to obtain a multimap is using {@code Multimaps.index}. See the {@code Multimaps} class for these and other static
- * utilities related to multimaps.
+ * <p><b>Lava:</b> this is a minimal port that supports {@link ImmutableMap#asMultimap} and {@link
+ * ImmutableSetMultimap}, the only implementation Lava provides. Guava's mutable multimaps, {@code
+ * ImmutableListMultimap}, {@code Multimaps} and {@code Multiset} (and therefore {@code keys()}) are
+ * not ported.
  *
  * <h2>Other Notes</h2>
  *

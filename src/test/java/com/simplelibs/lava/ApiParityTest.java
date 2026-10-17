@@ -307,9 +307,25 @@ class ApiParityTest {
     return sb.toString();
   }
 
+  /**
+   * Appends the runtime-retained declaration annotations (for example {@code @Deprecated} and
+   * {@code @SafeVarargs}) by simple name. Annotations from tooling packages that Lava drops
+   * (JSR-305, Error Prone, J2ObjC) are ignored.
+   */
   private static void appendDeprecated(StringBuilder sb, AnnotatedElement e) {
-    if (e.isAnnotationPresent(Deprecated.class)) {
-      sb.append(" | @Deprecated");
+    List<String> names = new ArrayList<>();
+    for (Annotation a : e.getDeclaredAnnotations()) {
+      String name = a.annotationType().getName();
+      if (name.startsWith("javax.annotation.")
+          || name.startsWith("com.google.errorprone.")
+          || name.startsWith("com.google.j2objc.")) {
+        continue;
+      }
+      names.add("@" + a.annotationType().getSimpleName());
+    }
+    names.sort(null);
+    if (!names.isEmpty()) {
+      sb.append(" | ").append(String.join(" ", names));
     }
   }
 

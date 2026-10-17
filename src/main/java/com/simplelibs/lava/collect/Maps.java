@@ -1355,18 +1355,6 @@ public final class Maps {
   }
 
   /**
-   * Returns an unmodifiable view of the specified set of entries. The {@link Entry#setValue}
-   * operation throws an {@link UnsupportedOperationException}, as do any operations that would
-   * modify the returned set.
-   *
-   * @param entrySet the entries for which to return an unmodifiable view
-   * @return an unmodifiable view of the entries
-   */
-  static <K, V> Set<Entry<K, V>> unmodifiableEntrySet(Set<Entry<K, V>> entrySet) {
-    return new UnmodifiableEntrySet<>(Collections.unmodifiableSet(entrySet));
-  }
-
-  /**
    * Returns an unmodifiable view of the specified map entry. The {@link Entry#setValue} operation
    * throws an {@link UnsupportedOperationException}. This also has the side-effect of redefining
    * {@code equals} to comply with the Entry contract, to avoid a possible nefarious implementation
@@ -1403,57 +1391,6 @@ public final class Maps {
         return unmodifiableEntry(entryIterator.next());
       }
     };
-  }
-
-  /** @see Multimaps#unmodifiableEntries */
-  static class UnmodifiableEntries<K, V> extends ForwardingCollection<Entry<K, V>> {
-    private final Collection<Entry<K, V>> entries;
-
-    UnmodifiableEntries(Collection<Entry<K, V>> entries) {
-      this.entries = entries;
-    }
-
-    @Override
-    protected Collection<Entry<K, V>> delegate() {
-      return entries;
-    }
-
-    @Override
-    public Iterator<Entry<K, V>> iterator() {
-      return unmodifiableEntryIterator(entries.iterator());
-    }
-
-    // See java.util.Collections.UnmodifiableEntrySet for details on attacks.
-
-    @Override
-    public Object[] toArray() {
-      return standardToArray();
-    }
-
-    @Override
-    public <T> T[] toArray(T[] array) {
-      return standardToArray(array);
-    }
-  }
-
-  /** @see Maps#unmodifiableEntrySet(Set) */
-  static class UnmodifiableEntrySet<K, V> extends UnmodifiableEntries<K, V>
-      implements Set<Entry<K, V>> {
-    UnmodifiableEntrySet(Set<Entry<K, V>> entries) {
-      super(entries);
-    }
-
-    // See java.util.Collections.UnmodifiableEntrySet for details on attacks.
-
-    @Override
-    public boolean equals(@Nullable Object object) {
-      return Sets.equalsImpl(this, object);
-    }
-
-    @Override
-    public int hashCode() {
-      return Sets.hashCodeImpl(this);
-    }
   }
 
   /**
@@ -1917,29 +1854,6 @@ public final class Maps {
       @Override
       public V2 transformEntry(K key, V1 value) {
         return function.apply(value);
-      }
-    };
-  }
-
-  static <K, V1, V2> Function<V1, V2> asValueToValueFunction(
-      final EntryTransformer<? super K, V1, V2> transformer, final K key) {
-    checkNotNull(transformer);
-    return new Function<V1, V2>() {
-      @Override
-      public V2 apply(@Nullable V1 v1) {
-        return transformer.transformEntry(key, v1);
-      }
-    };
-  }
-
-  /** Views an entry transformer as a function from {@code Entry} to values. */
-  static <K, V1, V2> Function<Entry<K, V1>, V2> asEntryToValueFunction(
-      final EntryTransformer<? super K, ? super V1, V2> transformer) {
-    checkNotNull(transformer);
-    return new Function<Entry<K, V1>, V2>() {
-      @Override
-      public V2 apply(Entry<K, V1> entry) {
-        return transformer.transformEntry(entry.getKey(), entry.getValue());
       }
     };
   }
@@ -3536,19 +3450,6 @@ public final class Maps {
   }
 
   /**
-   * Delegates to {@link Map#containsKey}. Returns {@code false} on {@code ClassCastException} and
-   * {@code NullPointerException}.
-   */
-  static boolean safeContainsKey(Map<?, ?> map, Object key) {
-    checkNotNull(map);
-    try {
-      return map.containsKey(key);
-    } catch (ClassCastException | NullPointerException e) {
-      return false;
-    }
-  }
-
-  /**
    * Delegates to {@link Map#remove}. Returns {@code null} on {@code ClassCastException} and {@code
    * NullPointerException}.
    */
@@ -3564,48 +3465,6 @@ public final class Maps {
   /** An admittedly inefficient implementation of {@link Map#containsKey}. */
   static boolean containsKeyImpl(Map<?, ?> map, @Nullable Object key) {
     return Iterators.contains(keyIterator(map.entrySet().iterator()), key);
-  }
-
-  /** An implementation of {@link Map#containsValue}. */
-  static boolean containsValueImpl(Map<?, ?> map, @Nullable Object value) {
-    return Iterators.contains(valueIterator(map.entrySet().iterator()), value);
-  }
-
-  /**
-   * Implements {@code Collection.contains} safely for forwarding collections of map entries. If
-   * {@code o} is an instance of {@code Entry}, it is wrapped using {@link #unmodifiableEntry} to
-   * protect against a possible nefarious equals method.
-   *
-   * <p>Note that {@code c} is the backing (delegate) collection, rather than the forwarding
-   * collection.
-   *
-   * @param c the delegate (unwrapped) collection of map entries
-   * @param o the object that might be contained in {@code c}
-   * @return {@code true} if {@code c} contains {@code o}
-   */
-  static <K, V> boolean containsEntryImpl(Collection<Entry<K, V>> c, Object o) {
-    if (!(o instanceof Entry)) {
-      return false;
-    }
-    return c.contains(unmodifiableEntry((Entry<?, ?>) o));
-  }
-
-  /**
-   * Implements {@code Collection.remove} safely for forwarding collections of map entries. If
-   * {@code o} is an instance of {@code Entry}, it is wrapped using {@link #unmodifiableEntry} to
-   * protect against a possible nefarious equals method.
-   *
-   * <p>Note that {@code c} is backing (delegate) collection, rather than the forwarding collection.
-   *
-   * @param c the delegate (unwrapped) collection of map entries
-   * @param o the object to remove from {@code c}
-   * @return {@code true} if {@code c} was changed
-   */
-  static <K, V> boolean removeEntryImpl(Collection<Entry<K, V>> c, Object o) {
-    if (!(o instanceof Entry)) {
-      return false;
-    }
-    return c.remove(unmodifiableEntry((Entry<?, ?>) o));
   }
 
   /** An implementation of {@link Map#equals}. */
@@ -3631,13 +3490,6 @@ public final class Maps {
       sb.append(entry.getKey()).append('=').append(entry.getValue());
     }
     return sb.append('}').toString();
-  }
-
-  /** An implementation of {@link Map#putAll}. */
-  static <K, V> void putAllImpl(Map<K, V> self, Map<? extends K, ? extends V> map) {
-    for (Entry<? extends K, ? extends V> entry : map.entrySet()) {
-      self.put(entry.getKey(), entry.getValue());
-    }
   }
 
   static class KeySet<K, V> extends Sets.ImprovedAbstractSet<K> {
@@ -4168,16 +4020,6 @@ public final class Maps {
     public String toString() {
       return standardToString();
     }
-  }
-
-  /** Returns a map from the ith element of list to i. */
-  static <E> ImmutableMap<E, Integer> indexMap(Collection<E> list) {
-    ImmutableMap.Builder<E, Integer> builder = new ImmutableMap.Builder<>(list.size());
-    int i = 0;
-    for (E e : list) {
-      builder.put(e, i++);
-    }
-    return builder.build();
   }
 
   /**

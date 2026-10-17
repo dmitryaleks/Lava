@@ -296,9 +296,8 @@ public abstract class ImmutableList<E> extends ImmutableCollection<E>
    * order. The sorting algorithm used is stable, so elements that compare as equal will stay in the
    * order in which they appear in the input.
    *
-   * <p>If your data has no duplicates, or you wish to deduplicate elements, use {@code
-   * ImmutableSortedSet.copyOf(elements)}; if you want a {@code List} you can use its {@code
-   * asList()} view.
+   * <p>(In Guava, to deduplicate elements you would use {@code ImmutableSortedSet.copyOf}, which
+   * Lava does not port.)
    *
    * <p><b>Java 8 users:</b> If you want to convert a {@link java.util.stream.Stream} to a sorted
    * {@code ImmutableList}, use {@code stream.sorted().collect(toImmutableList())}.
@@ -319,9 +318,8 @@ public abstract class ImmutableList<E> extends ImmutableCollection<E>
    * specified comparator. The sorting algorithm used is stable, so elements that compare as equal
    * will stay in the order in which they appear in the input.
    *
-   * <p>If your data has no duplicates, or you wish to deduplicate elements, use {@code
-   * ImmutableSortedSet.copyOf(comparator, elements)}; if you want a {@code List} you can use its
-   * {@code asList()} view.
+   * <p>(In Guava, to deduplicate elements you would use {@code ImmutableSortedSet.copyOf}, which
+   * Lava does not port.)
    *
    * <p><b>Java 8 users:</b> If you want to convert a {@link java.util.stream.Stream} to a sorted
    * {@code ImmutableList}, use {@code stream.sorted(comparator).collect(toImmutableList())}.

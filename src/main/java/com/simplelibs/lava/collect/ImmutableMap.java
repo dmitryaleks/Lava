@@ -113,7 +113,7 @@ public abstract class ImmutableMap<K, V> implements Map<K, V>, Serializable {
    * mainly for consistency and maintainability of your code.
    */
   public static <K, V> ImmutableMap<K, V> of(K k1, V v1) {
-    return RegularImmutableMap.fromEntries(entryOf(k1, v1));
+    return new SingletonImmutableMap<>(k1, v1);
   }
 
   /**
@@ -227,9 +227,9 @@ public abstract class ImmutableMap<K, V> implements Map<K, V>, Serializable {
    * were inserted into the builder, equivalently to {@code LinkedHashMap}. For example, in the
    * above example, {@code WORD_TO_INT.entrySet()} is guaranteed to iterate over the entries in the
    * order {@code "one"=1, "two"=2, "three"=3}, and {@code keySet()} and {@code values()} respect
-   * the same order. If you want a different order, consider using {@code ImmutableSortedMap} to
-   * sort by keys, or call {@link #orderEntriesByValue(Comparator)}, which changes this builder to
-   * sort entries by value.
+   * the same order. If you want a different order, call {@link #orderEntriesByValue(Comparator)},
+   * which changes this builder to sort entries by value. (Guava's {@code ImmutableSortedMap}, for
+   * sorting by keys, is not ported to Lava.)
    *
    * <p>Builder instances can be reused - it is safe to call {@link #build} multiple times to build
    * multiple maps in series. Each map is a superset of the maps created before it.

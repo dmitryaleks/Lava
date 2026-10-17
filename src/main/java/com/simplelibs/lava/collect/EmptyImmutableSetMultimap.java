@@ -19,7 +19,7 @@
 package com.simplelibs.lava.collect;
 
 /**
- * Implementation of {@code ImmutableListMultimap} with no entries.
+ * Implementation of {@link ImmutableSetMultimap} with no entries.
  *
  * @author Mike Ward
  */

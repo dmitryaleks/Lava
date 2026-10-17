@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -47,6 +48,14 @@ public final class CollectionContract {
       assertTrue(collection.contains(e), "contains " + e);
     }
     assertFalse(collection.contains(MISSING), "contains MISSING");
+    for (E e : reference) {
+      if (e instanceof java.util.Map.Entry) {
+        Object key = ((java.util.Map.Entry<?, ?>) e).getKey();
+        assertFalse(
+            collection.contains(new java.util.AbstractMap.SimpleImmutableEntry<>(key, MISSING)),
+            "contains an entry with the right key but a wrong value: " + key);
+      }
+    }
     assertTrue(collection.containsAll(reference), "containsAll");
     assertFalse(collection.containsAll(List.of(MISSING)), "containsAll MISSING");
 
@@ -109,10 +118,10 @@ public final class CollectionContract {
   public static <E> void assertAlwaysThrowsUnsupported(Collection<E> collection, E sample) {
     List<Executable> mutations = new ArrayList<>();
     mutations.add(() -> collection.add(sample));
-    mutations.add(() -> collection.addAll(List.of(sample)));
+    mutations.add(() -> collection.addAll(Collections.singletonList(sample)));
     mutations.add(() -> collection.remove(sample));
-    mutations.add(() -> collection.removeAll(List.of(sample)));
-    mutations.add(() -> collection.retainAll(List.of()));
+    mutations.add(() -> collection.removeAll(Collections.singletonList(sample)));
+    mutations.add(() -> collection.retainAll(Collections.emptyList()));
     mutations.add(() -> collection.removeIf(x -> true));
     mutations.add(collection::clear);
     if (!collection.isEmpty()) {

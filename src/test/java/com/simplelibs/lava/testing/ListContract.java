@@ -81,6 +81,10 @@ public final class ListContract {
     }
     assertTrue(list.containsAll(reference), "containsAll");
     assertFalse(list.containsAll(List.of(MISSING)), "containsAll MISSING");
+    // Every list in Lava, like every list in Guava, allows null queries.
+    assertEquals(reference.contains(null), list.contains(null), "contains(null)");
+    assertEquals(reference.indexOf(null), list.indexOf(null), "indexOf(null)");
+    assertEquals(reference.lastIndexOf(null), list.lastIndexOf(null), "lastIndexOf(null)");
 
     // Equality and hashing against several List implementations, in both directions.
     assertEquals(reference, list);
@@ -275,13 +279,13 @@ public final class ListContract {
     List<Executable> mutations = new ArrayList<>();
     mutations.add(() -> list.add(sample));
     mutations.add(() -> list.add(0, sample));
-    mutations.add(() -> list.addAll(List.of(sample)));
-    mutations.add(() -> list.addAll(0, List.of(sample)));
+    mutations.add(() -> list.addAll(Collections.singletonList(sample)));
+    mutations.add(() -> list.addAll(0, Collections.singletonList(sample)));
     mutations.add(() -> list.set(0, sample));
     mutations.add(() -> list.remove(0));
     mutations.add(() -> list.remove(sample));
-    mutations.add(() -> list.removeAll(List.of(sample)));
-    mutations.add(() -> list.retainAll(List.of()));
+    mutations.add(() -> list.removeAll(Collections.singletonList(sample)));
+    mutations.add(() -> list.retainAll(Collections.emptyList()));
     mutations.add(() -> list.removeIf(x -> true));
     mutations.add(() -> list.replaceAll(x -> x));
     mutations.add(() -> list.sort((x, y) -> 0)); // a comparator, so non-Comparable elements reach set()
@@ -327,13 +331,13 @@ public final class ListContract {
     List<Executable> mutations = new ArrayList<>();
     mutations.add(() -> list.add(sample));
     mutations.add(() -> list.add(0, sample));
-    mutations.add(() -> list.addAll(List.of(sample)));
-    mutations.add(() -> list.addAll(0, List.of(sample)));
+    mutations.add(() -> list.addAll(Collections.singletonList(sample)));
+    mutations.add(() -> list.addAll(0, Collections.singletonList(sample)));
     mutations.add(() -> list.set(0, sample));
     mutations.add(() -> list.remove(0));
     mutations.add(() -> list.remove(sample));
-    mutations.add(() -> list.removeAll(List.of(sample)));
-    mutations.add(() -> list.retainAll(List.of()));
+    mutations.add(() -> list.removeAll(Collections.singletonList(sample)));
+    mutations.add(() -> list.retainAll(Collections.emptyList()));
     mutations.add(() -> list.removeIf(x -> true));
     mutations.add(() -> list.replaceAll(x -> x));
     mutations.add(() -> list.sort((x, y) -> 0)); // a comparator, so non-Comparable elements reach set()

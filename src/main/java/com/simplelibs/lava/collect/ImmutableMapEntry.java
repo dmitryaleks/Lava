@@ -57,11 +57,6 @@ class ImmutableMapEntry<K, V> extends ImmutableEntry<K, V> {
     return null;
   }
 
-  @Nullable
-  ImmutableMapEntry<K, V> getNextInValueBucket() {
-    return null;
-  }
-
   /**
    * Returns true if this entry has no bucket links and can safely be reused as a terminal entry in
    * a bucket in another map.
@@ -86,26 +81,6 @@ class ImmutableMapEntry<K, V> extends ImmutableEntry<K, V> {
     @Override
     final boolean isReusable() {
       return false;
-    }
-  }
-
-  static final class NonTerminalImmutableBiMapEntry<K, V>
-      extends NonTerminalImmutableMapEntry<K, V> {
-    private final transient ImmutableMapEntry<K, V> nextInValueBucket;
-
-    NonTerminalImmutableBiMapEntry(
-        K key,
-        V value,
-        ImmutableMapEntry<K, V> nextInKeyBucket,
-        ImmutableMapEntry<K, V> nextInValueBucket) {
-      super(key, value, nextInKeyBucket);
-      this.nextInValueBucket = nextInValueBucket;
-    }
-
-    @Override
-    @Nullable
-    ImmutableMapEntry<K, V> getNextInValueBucket() {
-      return nextInValueBucket;
     }
   }
 }

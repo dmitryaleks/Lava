@@ -136,7 +136,8 @@ class ImmutableCollectionContractTest {
                 ImmutableList<E> asList = ((ImmutableCollection<E>) collection).asList();
                 ListContract.assertReadContract(asList, new ArrayList<>(expected));
                 ListContract.assertAlwaysThrowsUnsupported(asList, sample);
-                SerializableTester.reserialize(asList);
+                ListContract.assertReadContract(
+                    SerializableTester.reserialize(asList), new ArrayList<>(expected));
               }
             }));
   }
@@ -182,6 +183,34 @@ class ImmutableCollectionContractTest {
     return tests;
   }
 
+  /** Lists with duplicate elements, so indexOf and lastIndexOf differ. */
+  @TestFactory
+  List<DynamicTest> immutableListsWithDuplicates() {
+    List<DynamicTest> tests = new ArrayList<>();
+    for (List<String> expected :
+        List.of(
+            List.of("a", "a"),
+            List.of("a", "b", "a"),
+            List.of("a", "b", "a", "c", "b", "a"),
+            List.of("x", "y", "x", "y", "x", "y", "x", "y", "x", "y", "x", "y", "x"))) {
+      listCase(tests, "copyOf(dups " + expected + ")", () -> ImmutableList.copyOf(expected), expected);
+      List<String> reversed = new ArrayList<>(expected);
+      java.util.Collections.reverse(reversed);
+      listCase(tests, "reverse(dups " + expected + ")", () -> ImmutableList.copyOf(expected).reverse(), reversed);
+      listCase(
+          tests,
+          "subList(dups " + expected + ")",
+          () -> ImmutableList.copyOf(expected).subList(0, expected.size() - 1),
+          expected.subList(0, expected.size() - 1));
+      listCase(
+          tests,
+          "builder(dups " + expected + ")",
+          () -> ImmutableList.<String>builder().addAll(expected).build(),
+          expected);
+    }
+    return tests;
+  }
+
   @TestFactory
   List<DynamicTest> immutableSetsAndViews() {
     List<DynamicTest> tests = new ArrayList<>();
@@ -218,6 +247,18 @@ class ImmutableCollectionContractTest {
     }
     List<String> colliding = collidingStrings(5); // 32 strings with one hash code
     collectionCase(tests, "ImmutableSet.copyOf(hash flooding)", () -> ImmutableSet.copyOf(colliding), colliding, "z");
+    tests.add(
+        dynamicTest(
+            "hash flooding falls back to JdkBackedImmutableSet exactly when Guava's does",
+            () -> {
+              for (int power = 3; power <= 11; power++) {
+                List<String> strings = collidingStrings(power);
+                assertThat(ImmutableSet.copyOf(strings).getClass().getSimpleName())
+                    .as("power " + power)
+                    .isEqualTo(com.google.common.collect.ImmutableSet.copyOf(strings).getClass().getSimpleName());
+              }
+              assertThat(ImmutableSet.copyOf(collidingStrings(11))).isInstanceOf(JdkBackedImmutableSet.class);
+            }));
 
     // Views of the map implementations that RegularImmutableMap does not cover.
     Map<String, Integer> flooded = new LinkedHashMap<>();

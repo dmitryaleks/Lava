@@ -52,3 +52,61 @@ Guava**; every finding concerned test strength or Javadoc.
 | 7 | m | Javadoc: `Ints.stringConverter` reference, Guava's `reverse` `@throws` typo (`>` for `<`), GWT note, "thread-safe as" wording | Accepted | Fixed. The `reverse` doc typo is an upstream Guava doc bug, corrected in Lava. |
 | 8 | m/n | `GcFinalization` used `currentTimeMillis` | Accepted | Switched to `nanoTime`. The unloading test was confirmed non-vacuous by two mutants. |
 | 9 | n | Unused helpers and long lines | Partly accepted | `assertSetWritesThrough` now verifies the restore; it is used from M4. `OtherEnum` is now used by the new equality test. |
+
+## Milestone 3 — immutable collections core, minimal Multimap family (commit `ab4a1aa`)
+
+Review method:
+- a line-by-line diff of about 35 ported classes against Guava;
+- about 1,000 probe lines run side by side against the Guava jar (the same probe source, compiled twice with the package swapped);
+- a randomized builder differential of 3,000 sequences;
+- a null sweep of 460 calls;
+- serialization round trips;
+- about 55 mutants.
+
+**No critical defects.** The immutable collections matched Guava everywhere except findings 1 and 2.
+
+| # | Sev | Finding | Verdict | Resolution |
+|---|-----|---------|---------|------------|
+| 1 | M | `ImmutableSetMultimap.Builder.orderValuesBy` deduplicated values by `equals`. Guava's `ImmutableSortedSet` collapses values that compare equal. The Javadoc still promised an `ImmutableSortedSet`. | Accepted | `valueSet` now sorts, then keeps the first value of each run that compares equal. This reproduces `ImmutableSortedSet.construct` for `size`, `toString`, `inverse` and `values`. One difference remains: the sets are plain `ImmutableSet`s, so `contains` uses `equals`. It is documented on `orderValuesBy` and in the `collect` package doc. The new `ImmutableSetMultimapDifferentialTest` compares 500 random builds against Guava, using a comparator that is inconsistent with `equals`. |
+| 2 | m | One-entry maps were `RegularImmutableMap`s, so `values()` was not a `Set`. Guava returns a `SingletonImmutableBiMap`. | Accepted | Added `SingletonImmutableMap`: Guava's `SingletonImmutableBiMap` without the BiMap part. `of(k, v)`, the builder and `copyOf` use it for a single entry. It is tested against Guava for `values().equals(Set)`, `hashCode`, the views and serialization. |
+| 3 | m | The contract suites missed real regressions (a–g, see below). | Accepted | All seven fixed (see below). |
+| 4 | m | `ApiParityTest` compared only `@Deprecated` and `@FunctionalInterface`, so removing `@SafeVarargs` went unnoticed. Exclusions match by id only. | Partly accepted | All runtime declaration annotations are now compared, `@SafeVarargs` included. **Rejected:** pinning signatures in exclusions. An excluded member is absent or different by definition, every exclusion states a reason, and a stale exclusion already fails the test. |
+| 5 | m | Stale Javadoc: references to the unported `ImmutableSortedSet`, `ImmutableSortedMap`, `ImmutableMultiset`, `ImmutableListMultimap`, `SortedSetMultimap` and `Multimaps.index`; the serialization note in `orderValuesBy`; drift from PLAN. | Accepted | Rewritten. The test stand-ins `HashMultimap` and `LinkedListMultimap` now document what they really are. |
+| 6 | m | `collect` had no `package-info.java`. | Accepted | Added. It states that Lava is single-threaded and lists the deliberate differences. |
+| 7 | n | Dead helper code, while the coverage gate was lowered. | Partly accepted | Pruned `NonTerminalImmutableBiMapEntry`, `getNextInValueBucket`, `Maps.UnmodifiableEntrySet`/`UnmodifiableEntries` and other unused helpers. `TransformedIterator`, `keyIterator`/`valueIterator` and the `AbstractMultimap` skeleton views have been in use since M5. **Rejected:** making `ImmutableMultimap.entries()` abstract. In Guava it is a concrete public method, and `ApiParityTest` would rightly flag the changed modifier. The unreachable `createEntries()` stays, with a comment. |
+| 8 | n | The `valueComparator` field is vestigial. `FieldSetter` mutates final fields, which future JDKs restrict (JEP 500). | Partly accepted | Removed the field and its setter. **Deferred:** replacing the field-setter `readObject` with a `SerializedForm` proxy. The current code works on the Java 17 target and mirrors Guava's stream layout. Revisit if Lava moves to a JDK that restricts final-field mutation. |
+| 9 | n | `CollectorTester` lacked the UNORDERED and IDENTITY_FINISH checks. `reserializeAndAssert` does not compare `toString`. | Partly accepted | Added both `CollectorTester` checks. **Rejected:** the `toString` comparison. testlib's `SerializableTester` does not make it either, and `equals` plus the class check already cover the contract. |
+
+Finding 3 in detail:
+
+| Part | Regression the suites missed | Fix |
+|---|---|---|
+| a | An entry `contains` that ignores the value | `CollectionContract` probes entries with the right key and a wrong value. |
+| b | `get(absent)` after deserialization | The differential test reserializes, then queries an absent key. |
+| c | List cases had no duplicates | New list cases with duplicate elements. |
+| d | `copyOf(Iterable<Entry>)`, `putAll(Iterable)`, `getOrDefault` and flood detection were uncovered | Now covered by the differential and singleton tests. |
+| e | Flooding tests never asserted the fallback class | They assert `JdkBackedImmutableSet`. |
+| f | Null checks and their messages were untested | `NullPointerTester` sweeps the multimap statics and builder. A new test compares the null messages with Guava: `null key in entry: null=[1]`, a flattened null key with an empty stream, and others. |
+| g | The `reserialize` result was discarded | The reserialized `asList` now goes through the list contract. |
+
+## Milestone 4 — collect.Lists (commit `2e49626`)
+
+Review method:
+- about 260 probes against the Guava jar;
+- a random operation-sequence fuzz over 22 views: 9 seeds of 3,000–6,000 rounds each, with 0 differences;
+- a reflection comparison of all nested classes;
+- 81 mutants.
+
+**No production divergence from Guava.** About 20 mutants that changed user-visible behaviour survived. Every finding was about test strength, dead code or Javadoc.
+
+| # | Sev | Finding | Verdict | Resolution |
+|---|-----|---------|---------|------------|
+| 1 | M | The `reverse()` list-iterator state machine and the mutation contract were unverified. testlib's `ListIteratorTester` was not ported. | Accepted | Ported `ListIteratorTester`. The new `ListsIteratorTest` runs it exhaustively and checks the backing list after every sequence. The runs cover every 4-step sequence, start indices 0, middle and end, and sizes 0, 1 and 3. The views tested are `reverse` of `ArrayList`, `LinkedList`, both sub-lists and `Arrays.asList`, plus `transform` and its compositions with `reverse`. `IteratorTester` covers the views' iterators, and every read-only view gets an unmodifiable `ListIteratorTester` run. |
+| 2 | M | Documented behaviour was untested: the `cartesianProduct` defensive copy, the null-element NPE, empty axis versus overflow; `charactersOf` duplicates; the `reverse(ImmutableList)` fast path; the `RandomAccess`/`Serializable` flags. | Accepted | Added a test for each, including a Guava comparison of the cartesian edge cases. Writing them showed that an empty axis in any position wins over the overflow check, not only one placed before the large axes, because every axis is copied first. |
+| 3 | M | `testTransformedSequentialIterationUsesBackingListIterationOnly` was weakened: its `AbstractSequentialList` tolerated any extra call. | Accepted | The list is now a dynamic proxy that supports only `size()` and `listIterator(int)` and throws `UnsupportedOperationException` for everything else. That is as strict as Guava's `ForwardingList`. A separate test asserts that the proxy is strict. |
+| 4 | m | The contracts had no null or duplicate fixtures and no null queries, contained a vacuous assertion, derived expected values from the system under test, and the class Javadoc overstated the coverage. | Accepted | `ListsContractTest` gained duplicate and null fixtures. `ListContract` now checks `contains(null)`, `indexOf(null)` and `lastIndexOf(null)`, as Guava's `ALLOWS_NULL_QUERIES` does, and its mutation probes use null-tolerant lists. The vacuous line is gone, expected values come from the fixtures, and the Javadoc is accurate. |
+| 5 | m | `ListsDifferentialTest` covered 8 operation kinds over 2 backings and never compared traits. | Accepted | Adopted the reviewer's fuzz as `ListsViewDifferentialTest`. It covers 21 view kinds, every `List` method, sub-list mutations and random `Iterator`/`ListIterator` sequences. It compares results, exception messages, the view, the backing list and the `RandomAccess`/`Serializable` flags. It also surfaced a harness problem: HotSpot drops the messages of implicit exceptions thrown from hot compiled code. The test JVM now runs with `-XX:-OmitStackTraceInFastThrow`. |
+| 6 | m | Dead or weakly tested code: `listIteratorImpl`, `subListImpl`, `AbstractListWrapper`, `RandomAccessListWrapper`, `cast` and `ReverseList.removeRange` were dead; `hashCodeImpl` was never compared with `List.hashCode`; the `addAllImpl` test ignored order; `CollectMath.divide` was untested. | Accepted | Pruned the dead helpers. `hashCodeImpl` is now compared with `List.hashCode`, nulls included. The `addAllImpl` test now checks order. That exposed a wrong expectation in Guava's own `ListsImplTest`, hidden by its order-insensitive assertion; it is corrected. The new `CollectMathTest` compares `divide` and `log2` in every rounding mode, plus the overflow helpers, against Guava's `IntMath` and `Ints`. |
+| 7 | m | Stale Javadoc: `Sets`/`Queues`, `FluentIterable`, advice to use `Iterables`/`Collections2`, a thread-safety claim, the `partitionSize` parameter name, an inaccurate `cartesianProduct` NPE clause, GWT comments and TODOs. | Accepted | Fixed. The `cartesianProduct` `@throws` now says that axes after the first empty one are not checked. |
+| 8 | n | The partition overflow fix was documented only in a code comment. | Accepted | Documented in the `partition` Javadoc. A test shows Guava 27.0.1 failing where Lava returns the right sublist. The README's migration notes will list it (M8). |
+| 9 | n | Long test lines; `newCopyOnWriteArrayList(Collection)` untested; `isPartialView` never executed. | Accepted | Reformatted `ListsContractTest`. The `Collection` branch is tested. `isPartialView` is observed through `copyOf` identity: a `charactersOf` result is reused, and cartesian element lists are copied. |

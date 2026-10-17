@@ -60,6 +60,9 @@ tasks.test {
     }
     // MapsTest reflects into HashMap.table to verify capacity computations.
     jvmArgs("--add-opens", "java.base/java.util=ALL-UNNAMED")
+    // Differential tests compare exception messages; without this flag, HotSpot replaces implicit
+    // exceptions thrown from hot compiled code with preallocated ones that have no message.
+    jvmArgs("-XX:-OmitStackTraceInFastThrow")
     maxHeapSize = "1g"
     testLogging {
         events("failed")

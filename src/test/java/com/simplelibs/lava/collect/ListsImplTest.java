@@ -129,6 +129,13 @@ public abstract class ListsImplTest extends LavaTestCase {
     assertThat(Lists.hashCodeImpl(base)).isNotEqualTo(Lists.hashCodeImpl(diffValue));
     assertThat(Lists.hashCodeImpl(base)).isNotEqualTo(Lists.hashCodeImpl(diffLength));
     assertThat(Lists.hashCodeImpl(base)).isNotEqualTo(Lists.hashCodeImpl(empty));
+
+    // Lava: the value must be the one List.hashCode specifies, including for null elements.
+    for (List<Integer> list : java.util.Arrays.asList(base, outOfOrder, diffValue, diffLength, empty)) {
+      assertThat(Lists.hashCodeImpl(list)).isEqualTo(new java.util.ArrayList<>(list).hashCode());
+    }
+    List<String> withNull = java.util.Arrays.asList("a", null, "b");
+    assertThat(Lists.hashCodeImpl(withNull)).isEqualTo(new java.util.ArrayList<>(withNull).hashCode());
   }
 
   @Test
@@ -170,7 +177,9 @@ public abstract class ListsImplTest extends LavaTestCase {
             ImmutableList.of("A"),
             ImmutableList.of("A"),
             ImmutableList.of("A", "A", "B", "C"),
-            ImmutableList.of("A", "A", "D", "E", "B", "C"));
+            // Lava: Guava's test expects [A, A, D, E, B, C], which is wrong for index 3; its
+            // order-insensitive assertion hid that. This test checks the order.
+            ImmutableList.of("A", "A", "B", "D", "E", "C"));
 
     String format = "Adding %s at %s";
     for (int i = 0; i < toAdd.size(); i++) {
@@ -182,7 +191,7 @@ public abstract class ListsImplTest extends LavaTestCase {
           .isEqualTo(expectedChanged);
       assertThat(toTest)
           .as(format, iterableToAdd, index)
-          .containsExactlyInAnyOrderElementsOf(expected.get(i));
+          .containsExactlyElementsOf(expected.get(i));
     }
   }
 

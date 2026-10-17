@@ -22,6 +22,7 @@ import static com.simplelibs.lava.collect.testing.IteratorFeature.UNMODIFIABLE;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.simplelibs.lava.collect.testing.IteratorTester;
 import com.simplelibs.lava.testing.LavaTestCase;
@@ -650,34 +651,48 @@ public class ListsTest extends LavaTestCase {
   @Test
   public void testTransformedSequentialIterationUsesBackingListIterationOnly() {
     List<Integer> randomAccessList = Lists.newArrayList(SOME_SEQUENTIAL_LIST);
-    List<Integer> listIteratorOnlyList = new ListIterationOnlyList<>(randomAccessList);
+    List<Integer> listIteratorOnlyList = ListIterationOnlyList.of(randomAccessList);
     List<String> transform = Lists.transform(listIteratorOnlyList, SOME_FUNCTION);
-    assertEquals(
-        new java.util.ArrayList<>(Lists.transform(randomAccessList, SOME_FUNCTION)),
-        new java.util.ArrayList<>(transform));
+    assertTrue(
+        Iterators.elementsEqual(
+            transform.iterator(), Lists.transform(randomAccessList, SOME_FUNCTION).iterator()));
   }
 
   /**
-   * A list that supports only {@code listIterator(int)} and {@code size()} (Guava's version is a
-   * {@code ForwardingList} whose delegate throws; Lava uses {@link java.util.AbstractSequentialList},
-   * which derives every other operation from {@code listIterator}).
+   * A list that supports only {@code listIterator(int)} and {@code size()}, and throws {@code
+   * UnsupportedOperationException} from every other method. Guava's version is a {@code
+   * ForwardingList} whose delegate throws; Lava has no {@code ForwardingList}, so this is a dynamic
+   * proxy, which is just as strict.
    */
-  private static class ListIterationOnlyList<E> extends java.util.AbstractSequentialList<E> {
-    private final List<E> realDelegate;
-
-    private ListIterationOnlyList(List<E> realDelegate) {
-      this.realDelegate = realDelegate;
+  private static final class ListIterationOnlyList {
+    @SuppressWarnings("unchecked")
+    static <E> List<E> of(List<E> realDelegate) {
+      return (List<E>)
+          java.lang.reflect.Proxy.newProxyInstance(
+              ListsTest.class.getClassLoader(),
+              new Class<?>[] {List.class},
+              (proxy, method, args) -> {
+                if (method.getName().equals("size") && method.getParameterCount() == 0) {
+                  return realDelegate.size();
+                }
+                if (method.getName().equals("listIterator") && method.getParameterCount() == 1) {
+                  return realDelegate.listIterator((Integer) args[0]);
+                }
+                throw new UnsupportedOperationException("This list only supports ListIterator");
+              });
     }
+  }
 
-    @Override
-    public int size() {
-      return realDelegate.size();
-    }
-
-    @Override
-    public ListIterator<E> listIterator(int index) {
-      return realDelegate.listIterator(index);
-    }
+  @Test
+  public void testListIterationOnlyListIsStrict() {
+    List<Integer> strict = ListIterationOnlyList.of(Lists.newArrayList(SOME_SEQUENTIAL_LIST));
+    assertEquals(SOME_SEQUENTIAL_LIST.size(), strict.size());
+    assertEquals(SOME_SEQUENTIAL_LIST.get(0), strict.listIterator(0).next());
+    assertThrows(UnsupportedOperationException.class, strict::iterator);
+    assertThrows(UnsupportedOperationException.class, () -> strict.get(0));
+    assertThrows(UnsupportedOperationException.class, strict::toArray);
+    assertThrows(UnsupportedOperationException.class, () -> strict.subList(0, 1));
+    assertThrows(UnsupportedOperationException.class, strict::listIterator);
   }
 
   private static void assertTransformIterator(List<String> list) {

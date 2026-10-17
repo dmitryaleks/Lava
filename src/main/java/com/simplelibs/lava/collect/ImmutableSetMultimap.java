@@ -320,10 +320,15 @@ public class ImmutableSetMultimap<K, V> extends ImmutableMultimap<K, V>
     /**
      * Specifies the ordering of the generated multimap's values for each key.
      *
-     * <p>If this method is called, the sets returned by the {@code get()} method of the generated
-     * multimap and its {@link Multimap#asMap()} view are {@code ImmutableSortedSet} instances.
-     * However, serialization does not preserve that property, though it does maintain the key and
-     * value ordering.
+     * <p>If this method is called, the values for each key are sorted by {@code valueComparator}
+     * and, as in Guava (which stores them in an {@code ImmutableSortedSet}), values that the
+     * comparator considers equal are collapsed, keeping the first one added.
+     *
+     * <p><b>Lava:</b> {@code ImmutableSortedSet} is not ported, so the sets returned by {@code get()}
+     * and the {@link Multimap#asMap()} view are ordered {@link ImmutableSet}s rather than sorted
+     * sets: they have no {@code comparator()}, and their {@code contains} uses {@code equals} where
+     * Guava's uses the comparator. These differ only for comparators inconsistent with {@code
+     * equals}.
      *
      * @since 8.0
      */
@@ -426,16 +431,12 @@ public class ImmutableSetMultimap<K, V> extends ImmutableMultimap<K, V>
    */
   private final transient ImmutableSet<V> emptySet;
 
-  /** Kept explicitly because Lava's value sets are not {@code ImmutableSortedSet}s. */
-  private final transient @Nullable Comparator<? super V> valueComparator;
-
   ImmutableSetMultimap(
       ImmutableMap<K, ImmutableSet<V>> map,
       int size,
       @Nullable Comparator<? super V> valueComparator) {
     super(map, size);
     this.emptySet = emptySet(valueComparator);
-    this.valueComparator = valueComparator;
   }
 
   // views
@@ -548,15 +549,29 @@ public class ImmutableSetMultimap<K, V> extends ImmutableMultimap<K, V>
 
   /*
    * Lava does not port ImmutableSortedSet. With a value comparator, Guava stores each key's values
-   * in an ImmutableSortedSet; Lava stores them, sorted by the comparator, in a plain ImmutableSet.
-   * Iteration order is therefore identical, but the value sets are not SortedSets and duplicates
-   * are detected with equals() rather than with the comparator.
+   * in ImmutableSortedSet.copyOf(comparator, values), which stable-sorts the values and keeps the
+   * first of each run that the comparator considers equal. Lava does exactly that and stores the
+   * result in a plain, ordered ImmutableSet, so size, iteration order, toString, values() and
+   * inverse() match Guava; only contains() (equals rather than comparator) and the missing
+   * SortedSet type differ.
    */
   private static <V> ImmutableSet<V> valueSet(
       @Nullable Comparator<? super V> valueComparator, Collection<? extends V> values) {
-    return (valueComparator == null)
-        ? ImmutableSet.copyOf(values)
-        : ImmutableSet.copyOf(ImmutableList.sortedCopyOf(valueComparator, values));
+    if (valueComparator == null) {
+      return ImmutableSet.copyOf(values);
+    }
+    ImmutableList<V> sorted = ImmutableList.sortedCopyOf(valueComparator, values);
+    ImmutableSet.Builder<V> unique = ImmutableSet.builderWithExpectedSize(sorted.size());
+    V lastKept = null;
+    boolean first = true;
+    for (V value : sorted) {
+      if (first || valueComparator.compare(lastKept, value) != 0) {
+        unique.add(value);
+        lastKept = value;
+        first = false;
+      }
+    }
+    return unique.build();
   }
 
   private static <V> ImmutableSet<V> emptySet(@Nullable Comparator<? super V> valueComparator) {
@@ -573,16 +588,18 @@ public class ImmutableSetMultimap<K, V> extends ImmutableMultimap<K, V>
     Serialization.writeMultimap(this, stream);
   }
 
+  /**
+   * Guava writes the value comparator so that deserialization can rebuild sorted value sets. Lava's
+   * value sets are already deduplicated and ordered on the wire, so it writes {@code null}.
+   */
   @Nullable
   Comparator<? super V> valueComparator() {
-    return valueComparator;
+    return null;
   }
-  
+
   private static final class SetFieldSettersHolder {
     static final Serialization.FieldSetter<ImmutableSetMultimap> EMPTY_SET_FIELD_SETTER =
         Serialization.getFieldSetter(ImmutableSetMultimap.class, "emptySet");
-    static final Serialization.FieldSetter<ImmutableSetMultimap> VALUE_COMPARATOR_FIELD_SETTER =
-        Serialization.getFieldSetter(ImmutableSetMultimap.class, "valueComparator");
   }
 
   // Serialization type safety is at the caller's mercy.
@@ -626,7 +643,6 @@ public class ImmutableSetMultimap<K, V> extends ImmutableMultimap<K, V>
     FieldSettersHolder.MAP_FIELD_SETTER.set(this, tmpMap);
     FieldSettersHolder.SIZE_FIELD_SETTER.set(this, tmpSize);
     SetFieldSettersHolder.EMPTY_SET_FIELD_SETTER.set(this, emptySet(valueComparator));
-    SetFieldSettersHolder.VALUE_COMPARATOR_FIELD_SETTER.set(this, valueComparator);
   }
 
   private static final long serialVersionUID = 0;

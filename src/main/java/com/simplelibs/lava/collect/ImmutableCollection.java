@@ -57,9 +57,12 @@ import java.util.function.Predicate;
  *   <li><b>Null-hostility.</b> This collection will never contain a null element.
  *   <li><b>Deterministic iteration.</b> The iteration order is always well-defined, depending on
  *       how the collection was created. Typically this is insertion order unless an explicit
- *       ordering is otherwise specified (e.g. {@code ImmutableSortedSet.naturalOrder}). See the
- *       appropriate factory method for details. View collections such as {@code ImmutableMultiset.elementSet} iterate in the same order as the parent, except as noted.
- *   <li><b>Thread safety.</b> It is safe to access this collection concurrently from multiple
+ *       ordering is otherwise specified (e.g. {@link ImmutableList#sortedCopyOf} or {@link
+ *       ImmutableMap.Builder#orderEntriesByValue}). See the appropriate factory method for
+ *       details. View collections such as {@link ImmutableMap#keySet} iterate in the same order as
+ *       the parent, except as noted.
+ *   <li><b>Thread safety.</b> (Lava is single-threaded, but immutable collections, having no
+ *       mutable state, remain safe to share.) It is safe to access this collection concurrently from multiple
  *       threads.
  *   <li><b>Integrity.</b> This type cannot be subclassed outside this package (which would allow
  *       these guarantees to be violated).

@@ -41,6 +41,20 @@ public final class CollectorTester<T, A, R> {
     check("merge left-associative", expectedResult, mergeLeft(list));
     check("merge right-associative", expectedResult, mergeRight(list));
     check("split in halves", expectedResult, splitInHalves(list));
+    if (collector.characteristics().contains(Collector.Characteristics.UNORDERED)) {
+      List<T> reversed = new ArrayList<>(list);
+      java.util.Collections.reverse(reversed);
+      check("unordered, reversed input", expectedResult, sequential(reversed));
+    }
+    if (collector.characteristics().contains(Collector.Characteristics.IDENTITY_FINISH)) {
+      A container = collector.supplier().get();
+      for (T t : list) {
+        collector.accumulator().accept(container, t);
+      }
+      @SuppressWarnings("unchecked")
+      R unfinished = (R) container;
+      check("identity finish", expectedResult, unfinished);
+    }
     return this;
   }
 
