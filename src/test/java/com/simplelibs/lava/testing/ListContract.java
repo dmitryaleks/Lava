@@ -284,7 +284,7 @@ public final class ListContract {
     mutations.add(() -> list.retainAll(List.of()));
     mutations.add(() -> list.removeIf(x -> true));
     mutations.add(() -> list.replaceAll(x -> x));
-    mutations.add(() -> list.sort(null));
+    mutations.add(() -> list.sort((x, y) -> 0)); // a comparator, so non-Comparable elements reach set()
     mutations.add(list::clear);
     if (!before.isEmpty()) {
       mutations.add(
@@ -336,7 +336,7 @@ public final class ListContract {
     mutations.add(() -> list.retainAll(List.of()));
     mutations.add(() -> list.removeIf(x -> true));
     mutations.add(() -> list.replaceAll(x -> x));
-    mutations.add(() -> list.sort(null));
+    mutations.add(() -> list.sort((x, y) -> 0)); // a comparator, so non-Comparable elements reach set()
     mutations.add(list::clear);
     for (Executable mutation : mutations) {
       assertThatThrownBy(mutation::execute).isInstanceOf(UnsupportedOperationException.class);

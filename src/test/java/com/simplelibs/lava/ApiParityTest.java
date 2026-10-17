@@ -92,6 +92,7 @@ class ApiParityTest {
           "collect.ImmutableMultimap",
           "collect.ImmutableSet",
           "collect.ImmutableSetMultimap",
+          "collect.Lists",
           "collect.Multimap",
           "collect.SetMultimap",
           "collect.UnmodifiableIterator",

@@ -16,6 +16,9 @@
 
 package com.simplelibs.lava.collect;
 
+import static com.simplelibs.lava.base.Preconditions.checkNotNull;
+import static java.lang.Math.abs;
+
 import java.math.RoundingMode;
 
 /**
@@ -90,6 +93,84 @@ final class CollectMath {
   static void checkRoundingUnnecessary(boolean condition) {
     if (!condition) {
       throw new ArithmeticException("mode was UNNECESSARY, but rounding was necessary");
+    }
+  }
+
+  /** Returns the result of dividing {@code p} by {@code q}, rounding using {@code mode}. */
+  @SuppressWarnings("fallthrough")
+  static int divide(int p, int q, RoundingMode mode) {
+    checkNotNull(mode);
+    if (q == 0) {
+      throw new ArithmeticException("/ by zero");
+    }
+    int div = p / q;
+    int rem = p - q * div; // equal to p % q
+
+    if (rem == 0) {
+      return div;
+    }
+
+    /*
+     * Normal Java division rounds towards 0, consistently with RoundingMode.DOWN. We just have to
+     * deal with the cases where rounding towards 0 is wrong, which typically depends on the sign of
+     * p / q.
+     *
+     * signum is 1 if p and q are both nonnegative or both negative, and -1 otherwise.
+     */
+    int signum = 1 | ((p ^ q) >> (Integer.SIZE - 1));
+    boolean increment;
+    switch (mode) {
+      case UNNECESSARY:
+        checkRoundingUnnecessary(rem == 0);
+        // fall through
+      case DOWN:
+        increment = false;
+        break;
+      case UP:
+        increment = true;
+        break;
+      case CEILING:
+        increment = signum > 0;
+        break;
+      case FLOOR:
+        increment = signum < 0;
+        break;
+      case HALF_EVEN:
+      case HALF_DOWN:
+      case HALF_UP:
+        int absRem = abs(rem);
+        int cmpRemToHalfDivisor = absRem - (abs(q) - absRem);
+        // subtracting two nonnegative ints can't overflow
+        // cmpRemToHalfDivisor has the same sign as compare(abs(rem), abs(q) / 2).
+        if (cmpRemToHalfDivisor == 0) { // exactly on the half mark
+          increment =
+              (mode == RoundingMode.HALF_UP
+                  || (mode == RoundingMode.HALF_EVEN & (div & 1) != 0));
+        } else {
+          increment = cmpRemToHalfDivisor > 0; // closer to the UP value
+        }
+        break;
+      default:
+        throw new AssertionError();
+    }
+    return increment ? div + signum : div;
+  }
+
+  /** Returns the product of {@code a} and {@code b}, throwing on overflow. */
+  static int checkedMultiply(int a, int b) {
+    long result = (long) a * b;
+    checkNoOverflow(result == (int) result, "checkedMultiply", a, b);
+    return (int) result;
+  }
+
+  /** Returns the sum of {@code a} and {@code b} unless it would overflow, else the bound. */
+  static int saturatedAdd(int a, int b) {
+    return saturatedCast((long) a + b);
+  }
+
+  static void checkNoOverflow(boolean condition, String methodName, int a, int b) {
+    if (!condition) {
+      throw new ArithmeticException("overflow: " + methodName + "(" + a + ", " + b + ")");
     }
   }
 }

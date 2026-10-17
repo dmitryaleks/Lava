@@ -16,6 +16,8 @@
 
 package com.simplelibs.lava.collect;
 
+import static com.simplelibs.lava.base.Preconditions.checkNotNull;
+
 import com.simplelibs.lava.checker.nullness.qual.Nullable;
 import java.util.Collection;
 
@@ -96,6 +98,19 @@ final class Iterables {
     return (iterable instanceof Collection)
         ? (Collection<E>) iterable
         : Lists.newArrayList(iterable.iterator());
+  }
+
+  /**
+   * Adds all elements in {@code iterable} to {@code collection}.
+   *
+   * @return {@code true} if {@code collection} was modified as a result of this operation.
+   */
+  public static <T> boolean addAll(Collection<T> addTo, Iterable<? extends T> elementsToAdd) {
+    if (elementsToAdd instanceof Collection) {
+      Collection<? extends T> c = Collections2.cast(elementsToAdd);
+      return addTo.addAll(c);
+    }
+    return Iterators.addAll(addTo, checkNotNull(elementsToAdd).iterator());
   }
 }
 
