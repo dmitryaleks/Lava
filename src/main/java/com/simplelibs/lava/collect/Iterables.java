@@ -20,10 +20,50 @@ import static com.simplelibs.lava.base.Preconditions.checkNotNull;
 
 import com.simplelibs.lava.checker.nullness.qual.Nullable;
 import java.util.Collection;
+import java.util.Iterator;
+import java.util.function.Predicate;
 
 /** Package-private subset of Guava's {@code Iterables} used by Lava's collections. */
 final class Iterables {
   private Iterables() {}
+
+  /**
+   * Removes, from an iterable, every element that satisfies the provided predicate.
+   *
+   * <p>Removals may or may not happen immediately as each element is tested against the predicate.
+   * The behavior of this method is not specified if {@code predicate} is dependent on {@code
+   * removeFrom}.
+   *
+   * <p><b>Java 8 users:</b> if {@code removeFrom} is a {@link Collection}, use {@code
+   * removeFrom.removeIf(predicate)} instead.
+   *
+   * @param removeFrom the iterable to (potentially) remove elements from
+   * @param predicate a predicate that determines whether an element should be removed
+   * @return {@code true} if any elements were removed from the iterable
+   * @throws UnsupportedOperationException if the iterable does not support {@code remove()}.
+   * @since 2.0
+   */
+  public static <T> boolean removeIf(Iterable<T> removeFrom, Predicate<? super T> predicate) {
+    if (removeFrom instanceof Collection) {
+      return ((Collection<T>) removeFrom).removeIf(predicate);
+    }
+    return Iterators.removeIf(removeFrom.iterator(), predicate);
+  }
+
+  /** Removes and returns the first matching element, or returns {@code null} if there is none. */
+  static <T> @Nullable T removeFirstMatching(
+      Iterable<T> removeFrom, Predicate<? super T> predicate) {
+    checkNotNull(predicate);
+    Iterator<T> iterator = removeFrom.iterator();
+    while (iterator.hasNext()) {
+      T next = iterator.next();
+      if (predicate.test(next)) {
+        iterator.remove();
+        return next;
+      }
+    }
+    return null;
+  }
 
   /**
    * Returns a string representation of {@code iterable}, with the format {@code [e1, e2, ..., en]}
@@ -111,6 +151,63 @@ final class Iterables {
       return addTo.addAll(c);
     }
     return Iterators.addAll(addTo, checkNotNull(elementsToAdd).iterator());
+  }
+
+  /**
+   * Returns {@code true} if any element in {@code iterable} satisfies the predicate.
+   *
+   * <p><b>{@code Stream} equivalent:</b> {@link Stream#anyMatch}.
+   */
+  public static <T> boolean any(Iterable<T> iterable, Predicate<? super T> predicate) {
+    return Iterators.any(iterable.iterator(), predicate);
+  }
+
+  /**
+   * Returns the first element in {@code iterable} that satisfies the given predicate; use this
+   * method only when such an element is known to exist. If it is possible that <i>no</i> element
+   * will match, use {@link #tryFind} or {@link #find(Iterable, Predicate, Object)} instead.
+   *
+   * <p><b>{@code Stream} equivalent:</b> {@code stream.filter(predicate).findFirst().get()}
+   *
+   * @throws NoSuchElementException if no element in {@code iterable} matches the given predicate
+   */
+  public static <T> T find(Iterable<T> iterable, Predicate<? super T> predicate) {
+    return Iterators.find(iterable.iterator(), predicate);
+  }
+
+  /**
+   * Returns the first element in {@code iterable} that satisfies the given predicate, or {@code
+   * defaultValue} if none found. Note that this can usually be handled more naturally using {@code
+   * tryFind(iterable, predicate).or(defaultValue)}.
+   *
+   * <p><b>{@code Stream} equivalent:</b> {@code
+   * stream.filter(predicate).findFirst().orElse(defaultValue)}
+   *
+   * @since 7.0
+   */
+  public static <T> @Nullable T find(
+      Iterable<? extends T> iterable, Predicate<? super T> predicate, @Nullable T defaultValue) {
+    return Iterators.find(iterable.iterator(), predicate, defaultValue);
+  }
+
+  // Methods only in Iterables, not in Iterators
+
+  /**
+   * Determines if the given iterable contains no elements.
+   *
+   * <p>There is no precise {@link Iterator} equivalent to this method, since one can only ask an
+   * iterator whether it has any elements <i>remaining</i> (which one does using {@link
+   * Iterator#hasNext}).
+   *
+   * <p><b>{@code Stream} equivalent:</b> {@code !stream.findAny().isPresent()}
+   *
+   * @return {@code true} if the iterable contains no elements
+   */
+  public static boolean isEmpty(Iterable<?> iterable) {
+    if (iterable instanceof Collection) {
+      return ((Collection<?>) iterable).isEmpty();
+    }
+    return !iterable.iterator().hasNext();
   }
 }
 

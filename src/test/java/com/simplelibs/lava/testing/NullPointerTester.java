@@ -118,6 +118,19 @@ public final class NullPointerTester {
     put(RuntimeException.class, new RuntimeException());
     put(Error.class, new Error());
     put(java.util.Optional.class, java.util.Optional.empty());
+    // Lava types (guava-testlib's ArbitraryInstances provides the Guava equivalents).
+    put(com.simplelibs.lava.base.Optional.class, com.simplelibs.lava.base.Optional.absent());
+    put(com.simplelibs.lava.base.Converter.class, com.simplelibs.lava.base.Converter.identity());
+    put(com.simplelibs.lava.base.Equivalence.class, com.simplelibs.lava.base.Equivalence.equals());
+    put(com.simplelibs.lava.base.Ticker.class, com.simplelibs.lava.base.Ticker.systemTicker());
+    put(com.simplelibs.lava.collect.ImmutableList.class, com.simplelibs.lava.collect.ImmutableList.of());
+    put(com.simplelibs.lava.collect.ImmutableSet.class, com.simplelibs.lava.collect.ImmutableSet.of());
+    put(com.simplelibs.lava.collect.ImmutableCollection.class, com.simplelibs.lava.collect.ImmutableList.of());
+    put(com.simplelibs.lava.collect.ImmutableMap.class, com.simplelibs.lava.collect.ImmutableMap.of());
+    put(com.simplelibs.lava.collect.Range.class, com.simplelibs.lava.collect.Range.all());
+    put(com.simplelibs.lava.collect.BiMap.class, com.simplelibs.lava.collect.HashBiMap.create());
+    put(com.simplelibs.lava.collect.Multimap.class, com.simplelibs.lava.collect.ImmutableSetMultimap.of());
+    put(com.simplelibs.lava.collect.SetMultimap.class, com.simplelibs.lava.collect.ImmutableSetMultimap.of());
   }
 
   private void put(Class<?> type, Object value) {

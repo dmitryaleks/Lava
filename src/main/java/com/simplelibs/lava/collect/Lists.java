@@ -27,7 +27,6 @@ import static com.simplelibs.lava.base.Preconditions.checkState;
 import static com.simplelibs.lava.collect.CollectPreconditions.checkNonnegative;
 import static com.simplelibs.lava.collect.CollectPreconditions.checkRemove;
 
-import java.util.Objects;
 import com.simplelibs.lava.checker.nullness.qual.Nullable;
 import java.io.Serializable;
 import java.math.RoundingMode;
@@ -42,6 +41,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.RandomAccess;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;

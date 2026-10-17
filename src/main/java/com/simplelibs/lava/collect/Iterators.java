@@ -18,14 +18,17 @@ package com.simplelibs.lava.collect;
 
 import static com.simplelibs.lava.base.Preconditions.checkArgument;
 import static com.simplelibs.lava.base.Preconditions.checkNotNull;
+import static com.simplelibs.lava.collect.CollectPreconditions.checkRemove;
 
-import java.util.Objects;
 import com.simplelibs.lava.base.Preconditions;
 import com.simplelibs.lava.checker.nullness.qual.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 /** Package-private subset of Guava's {@code Iterators} used by Lava's collections. */
 final class Iterators {
@@ -84,19 +87,6 @@ final class Iterators {
     return checkNotNull(iterator);
   }
 
-  /**
-   * Returns the number of elements remaining in {@code iterator}. The iterator will be left
-   * exhausted: its {@code hasNext()} method will return {@code false}.
-   */
-  public static int size(Iterator<?> iterator) {
-    long count = 0L;
-    while (iterator.hasNext()) {
-      iterator.next();
-      count++;
-    }
-    return CollectMath.saturatedCast(count);
-  }
-
   /** Returns {@code true} if {@code iterator} contains {@code element}. */
   public static boolean contains(Iterator<?> iterator, @Nullable Object element) {
     if (element == null) {
@@ -113,6 +103,68 @@ final class Iterators {
       }
     }
     return false;
+  }
+
+  /**
+   * Traverses an iterator and removes every element that belongs to the provided collection. The
+   * iterator will be left exhausted: its {@code hasNext()} method will return {@code false}.
+   *
+   * @param removeFrom the iterator to (potentially) remove elements from
+   * @param elementsToRemove the elements to remove
+   * @return {@code true} if any element was removed from {@code iterator}
+   */
+  public static boolean removeAll(Iterator<?> removeFrom, Collection<?> elementsToRemove) {
+    checkNotNull(elementsToRemove);
+    boolean result = false;
+    while (removeFrom.hasNext()) {
+      if (elementsToRemove.contains(removeFrom.next())) {
+        removeFrom.remove();
+        result = true;
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Removes every element that satisfies the provided predicate from the iterator. The iterator
+   * will be left exhausted: its {@code hasNext()} method will return {@code false}.
+   *
+   * @param removeFrom the iterator to (potentially) remove elements from
+   * @param predicate a predicate that determines whether an element should be removed
+   * @return {@code true} if any elements were removed from the iterator
+   * @since 2.0
+   */
+  public static <T> boolean removeIf(Iterator<T> removeFrom, Predicate<? super T> predicate) {
+    checkNotNull(predicate);
+    boolean modified = false;
+    while (removeFrom.hasNext()) {
+      if (predicate.test(removeFrom.next())) {
+        removeFrom.remove();
+        modified = true;
+      }
+    }
+    return modified;
+  }
+
+  /**
+   * Traverses an iterator and removes every element that does not belong to the provided
+   * collection. The iterator will be left exhausted: its {@code hasNext()} method will return
+   * {@code false}.
+   *
+   * @param removeFrom the iterator to (potentially) remove elements from
+   * @param elementsToRetain the elements to retain
+   * @return {@code true} if any element was removed from {@code iterator}
+   */
+  public static boolean retainAll(Iterator<?> removeFrom, Collection<?> elementsToRetain) {
+    checkNotNull(elementsToRetain);
+    boolean result = false;
+    while (removeFrom.hasNext()) {
+      if (!elementsToRetain.contains(removeFrom.next())) {
+        removeFrom.remove();
+        result = true;
+      }
+    }
+    return result;
   }
 
   /**
@@ -206,6 +258,168 @@ final class Iterators {
       wasModified |= addTo.add(iterator.next());
     }
     return wasModified;
+  }
+
+  /**
+   * Returns a view of {@code unfiltered} containing all elements that satisfy the input predicate
+   * {@code retainIfTrue}.
+   */
+  public static <T> UnmodifiableIterator<T> filter(
+      final Iterator<T> unfiltered, final Predicate<? super T> retainIfTrue) {
+    checkNotNull(unfiltered);
+    checkNotNull(retainIfTrue);
+    return new AbstractIterator<T>() {
+      @Override
+      protected T computeNext() {
+        while (unfiltered.hasNext()) {
+          T element = unfiltered.next();
+          if (retainIfTrue.test(element)) {
+            return element;
+          }
+        }
+        return endOfData();
+      }
+    };
+  }
+
+  /**
+   * Returns a view of {@code unfiltered} containing all elements that are of the type {@code
+   * desiredType}.
+   */
+  @SuppressWarnings("unchecked") // can cast to <T> because non-Ts are removed
+  public static <T> UnmodifiableIterator<T> filter(Iterator<?> unfiltered, Class<T> desiredType) {
+    return (UnmodifiableIterator<T>) filter(unfiltered, CollectPredicates.instanceOf(desiredType));
+  }
+
+  /**
+   * Returns {@code true} if one or more elements returned by {@code iterator} satisfy the given
+   * predicate.
+   */
+  public static <T> boolean any(Iterator<T> iterator, Predicate<? super T> predicate) {
+    return indexOf(iterator, predicate) != -1;
+  }
+
+  /**
+   * Returns the first element in {@code iterator} that satisfies the given predicate; use this
+   * method only when such an element is known to exist. If no such element is found, the iterator
+   * will be left exhausted: its {@code hasNext()} method will return {@code false}. If it is
+   * possible that <i>no</i> element will match, use {@link #tryFind} or {@link #find(Iterator,
+   * Predicate, Object)} instead.
+   *
+   * @throws NoSuchElementException if no element in {@code iterator} matches the given predicate
+   */
+  public static <T> T find(Iterator<T> iterator, Predicate<? super T> predicate) {
+    checkNotNull(iterator);
+    checkNotNull(predicate);
+    while (iterator.hasNext()) {
+      T t = iterator.next();
+      if (predicate.test(t)) {
+        return t;
+      }
+    }
+    throw new NoSuchElementException();
+  }
+
+  /**
+   * Returns the first element in {@code iterator} that satisfies the given predicate. If no such
+   * element is found, {@code defaultValue} will be returned from this method and the iterator will
+   * be left exhausted: its {@code hasNext()} method will return {@code false}. Note that this can
+   * usually be handled more naturally using {@code tryFind(iterator, predicate).or(defaultValue)}.
+   *
+   * @since 7.0
+   */
+  public static <T> @Nullable T find(
+      Iterator<? extends T> iterator, Predicate<? super T> predicate, @Nullable T defaultValue) {
+    checkNotNull(iterator);
+    checkNotNull(predicate);
+    while (iterator.hasNext()) {
+      T t = iterator.next();
+      if (predicate.test(t)) {
+        return t;
+      }
+    }
+    return defaultValue;
+  }
+
+  /**
+   * Returns the index in {@code iterator} of the first element that satisfies the provided {@code
+   * predicate}, or {@code -1} if the Iterator has no such elements.
+   *
+   * <p>More formally, returns the lowest index {@code i} such that {@code
+   * predicate.test(Iterators.get(iterator, i))} returns {@code true}, or {@code -1} if there is no
+   * such index.
+   *
+   * <p>If -1 is returned, the iterator will be left exhausted: its {@code hasNext()} method will
+   * return {@code false}. Otherwise, the iterator will be set to the element which satisfies the
+   * {@code predicate}.
+   *
+   * @since 2.0
+   */
+  public static <T> int indexOf(Iterator<T> iterator, Predicate<? super T> predicate) {
+    checkNotNull(predicate, "predicate");
+    for (int i = 0; iterator.hasNext(); i++) {
+      T current = iterator.next();
+      if (predicate.test(current)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Returns a view containing the result of applying {@code function} to each element of {@code
+   * fromIterator}.
+   *
+   * <p>The returned iterator supports {@code remove()} if {@code fromIterator} does. After a
+   * successful {@code remove()} call, {@code fromIterator} no longer contains the corresponding
+   * element.
+   */
+  public static <F, T> Iterator<T> transform(
+      final Iterator<F> fromIterator, final Function<? super F, ? extends T> function) {
+    checkNotNull(function);
+    return new TransformedIterator<F, T>(fromIterator) {
+      @Override
+      T transform(F from) {
+        return function.apply(from);
+      }
+    };
+  }
+
+  /**
+   * Returns the next element in {@code iterator} or {@code defaultValue} if the iterator is empty.
+   * The {@link Iterables} analog to this method is {@link Iterables#getFirst}.
+   *
+   * @param defaultValue the default value to return if the iterator is empty
+   * @return the next element of {@code iterator} or the default value
+   * @since 7.0
+   */
+  public static <T> @Nullable T getNext(Iterator<? extends T> iterator, @Nullable T defaultValue) {
+    return iterator.hasNext() ? iterator.next() : defaultValue;
+  }
+
+  /**
+   * Deletes and returns the next value from the iterator, or returns {@code null} if there is no
+   * such value.
+   */
+  static <T> @Nullable T pollNext(Iterator<T> iterator) {
+    if (iterator.hasNext()) {
+      T result = iterator.next();
+      iterator.remove();
+      return result;
+    } else {
+      return null;
+    }
+  }
+
+  // Methods only in Iterators, not in Iterables
+
+  /** Clears the iterator using its remove method. */
+  static void clear(Iterator<?> iterator) {
+    checkNotNull(iterator);
+    while (iterator.hasNext()) {
+      iterator.next();
+      iterator.remove();
+    }
   }
 
   /**

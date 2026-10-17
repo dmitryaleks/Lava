@@ -92,7 +92,14 @@ class ApiParityTest {
           "collect.ImmutableMultimap",
           "collect.ImmutableSet",
           "collect.ImmutableSetMultimap",
+          "collect.BiMap",
+          "collect.BoundType",
+          "collect.HashBiMap",
           "collect.Lists",
+          "collect.MapDifference",
+          "collect.Maps",
+          "collect.Range",
+          "collect.SortedMapDifference",
           "collect.Multimap",
           "collect.SetMultimap",
           "collect.UnmodifiableIterator",
@@ -231,7 +238,7 @@ class ApiParityTest {
   private static Map<String, String> members(Class<?> c, boolean mapNames) {
     Map<String, String> result = new TreeMap<>();
     String typeName = map(c.getName());
-    result.put(typeName + "#<type>", norm(header(c), mapNames));
+    result.put(typeName + "#<type>", norm(header(c, mapNames), mapNames));
     if (c.isEnum()) {
       result.put(
           typeName + "#<constants>",
@@ -340,7 +347,7 @@ class ApiParityTest {
     return mapNames ? map(s) : s;
   }
 
-  private static String header(Class<?> c) {
+  private static String header(Class<?> c, boolean mapNames) {
     StringBuilder sb = new StringBuilder();
     int mods = c.getModifiers() & ~Modifier.SYNCHRONIZED;
     if (c.isInterface()) {
@@ -373,7 +380,8 @@ class ApiParityTest {
     if (ifaces.length > 0) {
       Set<String> names = new LinkedHashSet<>();
       for (Type t : ifaces) {
-        names.add(t.getTypeName());
+        // Map before sorting, so the order does not depend on Guava's package names.
+        names.add(mapNames ? map(t.getTypeName()) : t.getTypeName());
       }
       sb.append(c.isInterface() ? " extends " : " implements ")
           .append(String.join(",", new TreeSet<>(names)));

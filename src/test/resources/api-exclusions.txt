@@ -56,3 +56,7 @@ com.simplelibs.lava.collect.ImmutableMultimap#of(java.lang.Object,java.lang.Obje
 com.simplelibs.lava.collect.ImmutableMultimap#of(java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object) -- not ported: Guava creates an ImmutableListMultimap; use ImmutableSetMultimap
 com.simplelibs.lava.collect.ImmutableMultimap#of(java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object) -- not ported: Guava creates an ImmutableListMultimap; use ImmutableSetMultimap
 com.simplelibs.lava.collect.ImmutableMultimap#of(java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object) -- not ported: Guava creates an ImmutableListMultimap; use ImmutableSetMultimap
+
+// ---- collect: minimal Range (DiscreteDomain/ContiguousSet are not ported)
+com.simplelibs.lava.collect.Range#canonical(com.simplelibs.lava.collect.DiscreteDomain) -- not ported: needs DiscreteDomain
+com.simplelibs.lava.collect.Range#test(java.lang.Comparable) -- Range implements java.util.function.Predicate directly, whose abstract method is test; Guava's Range inherits test as a default of Guava's Predicate
