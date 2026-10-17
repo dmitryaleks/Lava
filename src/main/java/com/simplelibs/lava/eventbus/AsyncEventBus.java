@@ -24,7 +24,9 @@ import java.util.concurrent.Executor;
  *
  * <p><b>Lava:</b> Lava is single-threaded, so the executor must run its tasks on the thread that
  * owns the bus, for example by queueing them for an event loop to drain later. Thread-pool
- * executors are not supported.
+ * executors are not supported. As in Guava, all (event, subscriber) pairs of a post are queued
+ * before any is dispatched; if a subscriber throws an {@code Error} while a direct executor is
+ * dispatching, the remaining pairs stay queued and are delivered first by the next {@code post}.
  *
  * @author Cliff Biffle
  * @since 10.0

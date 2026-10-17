@@ -123,10 +123,11 @@ final class SubscriberRegistry {
    * instances of this class; this greatly improves performance if multiple EventBus instances are
    * created and objects of the same class are registered on all of them.
    *
-   * <p>Lava uses a {@link ClassValue} where Guava uses a weak-keyed {@code LoadingCache}; neither
-   * prevents the listener class from being unloaded. A {@code @Subscribe} method with the wrong
-   * number of parameters makes every lookup throw {@link IllegalArgumentException} (Guava wraps
-   * that exception in an {@code UncheckedExecutionException}).
+   * <p>Lava uses a {@link ClassValue} where Guava uses a weak-keyed {@code LoadingCache}. The
+   * {@code ClassValue} lets an unregistered listener's class loader be collected; Guava 27.0.1's
+   * cache keeps it reachable through the cached {@code Method}s. A {@code @Subscribe} method with
+   * the wrong number of parameters makes every lookup throw {@link IllegalArgumentException} (Guava
+   * wraps that exception in an {@code UncheckedExecutionException}).
    */
   private static final ClassValue<ImmutableList<Method>> subscriberMethodsCache =
       new ClassValue<ImmutableList<Method>>() {

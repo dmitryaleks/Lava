@@ -348,7 +348,7 @@ Faithful to `EventBus.java`, `Dispatcher.java`, `Subscriber.java`, `SubscriberRe
   - `legacyAsync` enqueues all (event, subscriber) pairs, then drains.
   - `immediate` is depth-first.
 - **Subscriber:**
-  - One class; `@AllowConcurrentEvents` is a no-op marker. Calls `setAccessible(true)` and dispatches
+  - As in Guava, `Subscriber` plus a `SynchronizedSubscriber` for methods without `@AllowConcurrentEvents` (its lock has no observable effect on one thread). Calls `setAccessible(true)` and dispatches
     through `bus.executor()`.
   - Unwraps `InvocationTargetException`: an `Error` cause is rethrown; anything else goes to `handleSubscriberException`.
   - IAE becomes `Error("Method rejected target/argument: …")` and IAccE becomes `Error("Method became inaccessible: …")`.

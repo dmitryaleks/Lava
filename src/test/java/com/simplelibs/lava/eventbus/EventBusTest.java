@@ -287,24 +287,6 @@ public class EventBusTest extends LavaTestCase {
     }
   }
 
-  /** Runnable which registers a StringCatcher on an event bus and adds it to a list. */
-  private static class Registrator implements Runnable {
-    private final EventBus bus;
-    private final List<StringCatcher> catchers;
-
-    Registrator(EventBus bus, List<StringCatcher> catchers) {
-      this.bus = bus;
-      this.catchers = catchers;
-    }
-
-    @Override
-    public void run() {
-      StringCatcher catcher = new StringCatcher();
-      bus.register(catcher);
-      catchers.add(catcher);
-    }
-  }
-
   /**
    * A collector for DeadEvents.
    *

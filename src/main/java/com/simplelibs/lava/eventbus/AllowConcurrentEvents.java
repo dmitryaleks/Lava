@@ -26,7 +26,8 @@ import java.lang.annotation.Target;
  * may invoke the event subscriber simultaneously from multiple threads.
  *
  * <p><b>Lava:</b> Lava's event bus is single-threaded, so this annotation is accepted for
- * compatibility but has no observable effect.
+ * compatibility. As in Guava, a subscriber without it is invoked through a wrapper that
+ * synchronizes on itself, which has no observable effect on a single thread.
  *
  * <p>This does not mark the method, and so should be used in combination with {@link Subscribe}.
  *

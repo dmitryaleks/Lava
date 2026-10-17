@@ -65,7 +65,16 @@ public class DeadEvent {
 
   @Override
   public String toString() {
-    // Guava's MoreObjects.toStringHelper(this).add("source", ...).add("event", ...) format.
-    return getClass().getSimpleName() + "{source=" + source + ", event=" + event + "}";
+    // Guava's MoreObjects.toStringHelper(this).add("source", ...).add("event", ...) format,
+    // which renders arrays element by element.
+    return getClass().getSimpleName() + "{source=" + render(source) + ", event=" + render(event) + "}";
+  }
+
+  private static String render(Object value) {
+    if (value != null && value.getClass().isArray()) {
+      String arrayString = java.util.Arrays.deepToString(new Object[] {value});
+      return arrayString.substring(1, arrayString.length() - 1);
+    }
+    return String.valueOf(value);
   }
 }

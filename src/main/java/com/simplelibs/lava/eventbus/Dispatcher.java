@@ -35,9 +35,10 @@ import java.util.Queue;
 abstract class Dispatcher {
 
   /**
-   * Returns a dispatcher that queues events that are posted reentrantly on a thread that is already
-   * dispatching an event, guaranteeing that all events posted on a single thread are dispatched to
-   * all subscribers in the order they are posted.
+   * Returns a dispatcher that queues events that are posted reentrantly while the bus is already
+   * dispatching an event, guaranteeing that all events are dispatched to all subscribers in the
+   * order they are posted. (Guava keeps this queue per thread; Lava, being single-threaded, keeps
+   * one per bus.)
    *
    * <p>When all subscribers are dispatched to using a <i>direct</i> executor (which dispatches on
    * the same thread that posts the event), this yields a breadth-first dispatch order on each

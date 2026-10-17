@@ -154,3 +154,37 @@ Review method:
   - `containsAll` without the `naturalOrder()` disjunct;
   - `subMap` without the `naturalOrder()` identity check, which cannot fire because a `Range` never has lower > upper;
   - `SynchronizedBiMap.equals` without its `this` shortcut.
+
+## Milestone 6 — eventbus (commit `59c2e46`)
+
+Review method:
+- a textual diff of every file;
+- a reflection dump of all declared members of the 16 classes;
+- five probes run side by side against the Guava jar (about 200 comparisons);
+- a hierarchy sweep over 13,888 JDK classes;
+- about 115 mutants.
+
+**No behavioural bug in dispatch, reentrancy, registration or exception handling.** Three divergences turned up (F3, F7, F9). About 30 non-equivalent mutants survived, which exposed the test gaps.
+
+| # | Sev | Finding | Verdict | Resolution |
+|---|-----|---------|---------|------------|
+| F1 | M | Overloaded `@Subscribe` methods of one listener (`on(String)` and `on(Integer)`) were untested; keying `MethodIdentifier` by name only survived. | Accepted | New `EventBusReviewTest` registers overloads plus a second method for the same type. |
+| F2 | M | `AsyncEventBus` wiring was unprotected: 10 mutants (dispatcher, identifier, handler in each constructor) survived, because a queueing executor without reentrant posts cannot tell the dispatchers apart. | Accepted | Tests with an inline executor and reentrant posts pin the legacy-async order for all three constructors and compare it with Guava's `AsyncEventBus`. Further tests cover the identifiers, the custom handler and the per-bus default logger. |
+| F3 | m | `DeadEvent.toString` printed arrays as `[I@…` where Guava's `ToStringHelper` renders their elements. | Accepted | Fixed. Arrays, including nested ones, as either source or event, are compared with Guava's `DeadEvent`. |
+| F4 | m | Untested: `DeadEvent.getSource`, a handler throwing an `Error`, the handler-failure log message and level, the `"default"` id of `EventBus(handler)`, the subscriber part of the default log message, the IAE → `Error` conversion, and the null checks (no NPE sweep). | Accepted | Each is now tested, including exact log messages and an NPE sweep over the public constructors and methods. |
+| F5 | m | Listener identity: equal-but-distinct listeners and `hashCode` use were not pinned. | Accepted | Added a test with listeners that are all equal and refuse to be hashed. |
+| F6 | m | Hierarchy order was thinly pinned: the interface/superclass tie-break, diamonds, and supertype-before-subtype order. The differential test avoided interfaces. | Accepted | Added tie-break, diamond and most-derived-override tests. A new differential test compares the event-type order with Guava's level by level (by depth) for more than 500 classes from `java.util`, `java.util.concurrent`, `java.io`, `java.nio` and `java.lang`, plus arrays and nested enums, and checks that depth never increases along the order. |
+| F7 | m | After an `Error`, the legacy async dispatcher keeps stale (event, subscriber) pairs that poison the next post. | Kept at Guava parity | Guava behaves identically (verified). The hazard is now documented on `AsyncEventBus`, and a test pins the behaviour. |
+| F8 | m | Stale docs: "spawn a thread", the multi-thread serial-invocation guarantee, `AllowConcurrentEvents` "no observable effect" next to a kept `SynchronizedSubscriber`, the per-thread wording in `Dispatcher`, and the class-unloading comment (Lava's `ClassValue` lets the loader be collected, Guava 27.0.1's cache does not). | Accepted | All rewritten. `SynchronizedSubscriber` is kept, as in Guava (`SubscriberTest.testCreate` asserts it); PLAN now says so. |
+| F9 | n | `Error`s from method discovery (such as `NoClassDefFoundError`) propagate raw where Guava wraps them in `ExecutionError`. | Accepted (documented) | It belongs to the same deviation as the IAE arity case and is now listed with it in the `EventBus` Javadoc. |
+| F10 | n | Several methods of one listener for the same event type run in `getDeclaredMethods()` order. | Accepted (documented) | The order is unspecified in Guava (hash order) and in Lava. The Javadoc says so. |
+| F11 | n | Accidental cross-thread use is silent: a post made during another thread's dispatch is deferred to that thread. | Accepted (documented) | Described in the `EventBus` Javadoc. No owner-thread check was added, as in the rest of Lava. |
+| F12 | n | Dead code: the `Registrator` test helper. | Accepted | Removed. `Dispatcher.immediate()`, `getSubscribersForTesting` and `flattenHierarchyNotCached` are kept as in Guava; the first two are used by ported tests. |
+
+**M6 mutant re-run.** The reviewer's 52 surviving mutants were re-applied to the new tests: 30 are now killed. The other 22 are equivalent:
+- equals-only and hash-only changes that the other method masks (the variant changing both `MethodIdentifier` methods is killed);
+- removed null checks on package-private paths, and logging and caching shortcuts;
+- an unreachable `IllegalAccessException` message (methods are made accessible first);
+- snapshot copy styles;
+- `isSynthetic` versus `isBridge`;
+- lock removal, which has no effect on one thread.

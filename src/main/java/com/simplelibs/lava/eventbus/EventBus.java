@@ -57,8 +57,8 @@ import java.util.logging.Logger;
  *
  * <p>When {@code post} is called, all registered subscribers for an event are run in sequence, so
  * subscribers should be reasonably quick. If an event may trigger an extended process (such as a
- * database load), spawn a thread or queue it for later. (For a convenient way to do this, use an
- * {@link AsyncEventBus}.)
+ * database load), queue it for later. (For a convenient way to do this, use an {@link
+ * AsyncEventBus} with an executor whose queue the same thread drains.)
  *
  * <h2>Subscriber Methods</h2>
  *
@@ -68,10 +68,9 @@ import java.util.logging.Logger;
  * exception. This is rarely the right solution for error handling and should not be relied upon; it
  * is intended solely to help find problems during development.
  *
- * <p>The EventBus guarantees that it will not call a subscriber method from multiple threads
- * simultaneously, unless the method explicitly allows it by bearing the {@link
- * AllowConcurrentEvents} annotation. If this annotation is not present, subscriber methods need not
- * worry about being reentrant, unless also called from outside the EventBus.
+ * <p>Lava calls subscribers only on the thread that posts, so subscriber methods need not be
+ * thread-safe; the {@link AllowConcurrentEvents} annotation is accepted for compatibility. A
+ * subscriber that posts reentrantly does not re-enter itself: the event is queued.
  *
  * <h2>Dead Events</h2>
  *
@@ -86,9 +85,14 @@ import java.util.logging.Logger;
  *
  * <p><b>Lava:</b> unlike Guava's, this class is <b>not</b> thread-safe. Register, unregister and
  * post on one thread; reentrant posts from subscribers are queued and delivered breadth-first, as
- * in Guava. A {@code @Subscribe} method with the wrong number of parameters makes {@link #register}
- * and {@link #unregister} throw {@link IllegalArgumentException} directly (Guava wraps it in an
- * {@code UncheckedExecutionException}).
+ * in Guava. Using a bus from several threads is not detected: a post made while another thread is
+ * dispatching may be queued and delivered on that other thread. Errors found while discovering
+ * subscriber methods propagate directly: a {@code @Subscribe} method with the wrong number of
+ * parameters makes {@link #register} and {@link #unregister} throw {@link
+ * IllegalArgumentException} (Guava wraps it in an {@code UncheckedExecutionException}), and an
+ * {@code Error} such as {@code NoClassDefFoundError} is thrown as is (Guava wraps it in an {@code
+ * ExecutionError}). Several subscriber methods of one listener for the same event type are called
+ * in an unspecified order, as in Guava.
  *
  * <p>See the Guava User Guide article on <a
  * href="https://github.com/google/guava/wiki/EventBusExplained">{@code EventBus}</a>.
