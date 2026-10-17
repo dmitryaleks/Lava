@@ -58,6 +58,7 @@ class ApiParityTest {
     full("org.checkerframework.checker.nullness.qual.NonNull");
     full("org.checkerframework.checker.nullness.qual.Nullable");
     full("base.Converter");
+    full("base.Enums");
     full("base.Equivalence");
     full("base.Optional");
     full("base.Preconditions");
@@ -67,6 +68,7 @@ class ApiParityTest {
     full("util.concurrent.ListenableFuture");
     full("util.concurrent.ListenableFutureTask");
     full("util.concurrent.UncheckedExecutionException");
+    full("primitives.Doubles");
     subset("util.concurrent.Futures");
     subset("util.concurrent.MoreExecutors");
   }

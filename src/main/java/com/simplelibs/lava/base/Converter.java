@@ -61,8 +61,7 @@ import java.util.function.Function;
  * <ul>
  *   <li>Use a provided converter implementation, such as {@link Enums#stringConverter}, {@code Ints.stringConverter} or the {@linkplain
  *       #reverse reverse} views of these.
- *   <li>Convert between specific preset values using {@link
- *       com.simplelibs.lava.collect.Maps#asConverter Maps.asConverter}. For example, use this to
+ *   <li>Convert between specific preset values using {@code Maps.asConverter}. For example, use this to
  *       create a "fake" converter for a unit test. It is unnecessary (and confusing) to <i>mock</i>
  *       the {@code Converter} type using a mocking framework.
  *   <li>Extend this class and implement its {@link #doForward} and {@link #doBackward} methods.
