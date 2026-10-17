@@ -37,11 +37,9 @@ final class Serialization {
   private Serialization() {}
 
   /**
-   * Reads a count corresponding to a serialized map, multiset, or multimap. It returns the size of
-   * a map serialized by {@link #writeMap(Map, ObjectOutputStream)}, the number of distinct elements
-   * in a multiset serialized by {@link #writeMultiset(Multiset, ObjectOutputStream)}, or the number
-   * of distinct keys in a multimap serialized by {@link #writeMultimap(Multimap,
-   * ObjectOutputStream)}.
+   * Reads a count corresponding to a serialized map or multimap. It returns the size of a map
+   * serialized by {@link #writeMap(Map, ObjectOutputStream)}, or the number of distinct keys in a
+   * multimap serialized by {@link #writeMultimap(Multimap, ObjectOutputStream)}.
    */
   static int readCount(ObjectInputStream stream) throws IOException {
     return stream.readInt();

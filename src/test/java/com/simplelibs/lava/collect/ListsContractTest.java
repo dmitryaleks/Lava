@@ -253,10 +253,11 @@ class ListsContractTest {
     ListContract.assertReadContract(product, expected, List.of("q", "q", "q"));
     ListContract.assertAlwaysThrowsUnsupported(product, List.of("a", "x", "1"));
     for (int i = 0; i < product.size(); i++) {
-      ListContract.assertReadContract(product.get(i), expected.get(i), "absent");
-      ListContract.assertAlwaysThrowsUnsupported(product.get(i), "z");
+      List<String> element = product.get(i);
+      ListContract.assertReadContract(element, expected.get(i), "absent");
+      ListContract.assertAlwaysThrowsUnsupported(element, "z");
       // The element lists are partial views, so copyOf copies them (as in Guava).
-      assertThat(ImmutableList.copyOf(product.get(i))).isNotSameAs(product.get(i));
+      assertThat(ImmutableList.copyOf(element)).isNotSameAs(element).isEqualTo(element);
     }
     assertThat(product).isInstanceOf(RandomAccess.class);
     assertThat(Lists.cartesianProduct()).containsExactly(List.of());

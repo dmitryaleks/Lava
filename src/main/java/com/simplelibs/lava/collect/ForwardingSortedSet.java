@@ -20,36 +20,12 @@ package com.simplelibs.lava.collect;
 
 import com.simplelibs.lava.checker.nullness.qual.Nullable;
 import java.util.Comparator;
-import java.util.Iterator;
-import java.util.NoSuchElementException;
 import java.util.SortedSet;
 
 /**
- * A sorted set which forwards all its method calls to another sorted set. Subclasses should
- * override one or more methods to modify the behavior of the backing sorted set as desired per the
- * <a href="http://en.wikipedia.org/wiki/Decorator_pattern">decorator pattern</a>.
- *
- * <p><b>Warning:</b> The methods of {@code ForwardingSortedSet} forward <i>indiscriminately</i> to
- * the methods of the delegate. For example, overriding {@link #add} alone <i>will not</i> change
- * the behavior of {@link #addAll}, which can lead to unexpected behavior. In this case, you should
- * override {@code addAll} as well, either providing your own implementation, or delegating to the
- * provided {@code standardAddAll} method.
- *
- * <p><b>{@code default} method warning:</b> This class does <i>not</i> forward calls to {@code
- * default} methods. Instead, it inherits their default implementations. When those implementations
- * invoke methods, they invoke methods on the {@code ForwardingSortedSet}.
- *
- * <p>Each of the {@code standard} methods, where appropriate, uses the set's comparator (or the
- * natural ordering of the elements, if there is no comparator) to test element equality. As a
- * result, if the comparator is not consistent with equals, some of the standard implementations may
- * violate the {@code Set} contract.
- *
- * <p>The {@code standard} methods and the collection views they return are not guaranteed to be
- * thread-safe, even when all of the methods that they depend on are thread-safe.
- *
- * @author Mike Bostock
- * @author Louis Wasserman
- * @since 2.0
+ * A sorted set which forwards all its method calls to another sorted set, as {@code delegate()} returns.
+ * Package-private subset of Guava's {@code ForwardingSortedSet} used by Lava's views: it overrides the
+ * interface methods only, and Guava's {@code standard*} helper methods are not ported.
  */
 abstract class ForwardingSortedSet<E> extends ForwardingSet<E> implements SortedSet<E> {
 
@@ -96,63 +72,5 @@ abstract class ForwardingSortedSet<E> extends ForwardingSet<E> implements Sorted
     return (comparator == null)
         ? ((Comparable<Object>) o1).compareTo(o2)
         : ((Comparator<Object>) comparator).compare(o1, o2);
-  }
-
-  /**
-   * A sensible definition of {@link #contains} in terms of the {@code first()} method of {@link
-   * #tailSet}. If you override {@link #tailSet}, you may wish to override {@link #contains} to
-   * forward to this implementation.
-   *
-   * @since 7.0
-   */
-  @Override
-  protected boolean standardContains(@Nullable Object object) {
-    try {
-      // any ClassCastExceptions are caught
-      @SuppressWarnings("unchecked")
-      SortedSet<Object> self = (SortedSet<Object>) this;
-      Object ceiling = self.tailSet(object).first();
-      return unsafeCompare(ceiling, object) == 0;
-    } catch (ClassCastException | NoSuchElementException | NullPointerException e) {
-      return false;
-    }
-  }
-
-  /**
-   * A sensible definition of {@link #remove} in terms of the {@code iterator()} method of {@link
-   * #tailSet}. If you override {@link #tailSet}, you may wish to override {@link #remove} to
-   * forward to this implementation.
-   *
-   * @since 7.0
-   */
-  @Override
-  protected boolean standardRemove(@Nullable Object object) {
-    try {
-      // any ClassCastExceptions are caught
-      @SuppressWarnings("unchecked")
-      SortedSet<Object> self = (SortedSet<Object>) this;
-      Iterator<Object> iterator = self.tailSet(object).iterator();
-      if (iterator.hasNext()) {
-        Object ceiling = iterator.next();
-        if (unsafeCompare(ceiling, object) == 0) {
-          iterator.remove();
-          return true;
-        }
-      }
-    } catch (ClassCastException | NullPointerException e) {
-      return false;
-    }
-    return false;
-  }
-
-  /**
-   * A sensible default implementation of {@link #subSet(Object, Object)} in terms of {@link
-   * #headSet(Object)} and {@link #tailSet(Object)}. In some situations, you may wish to override
-   * {@link #subSet(Object, Object)} to forward to this implementation.
-   *
-   * @since 7.0
-   */
-  protected SortedSet<E> standardSubSet(E fromElement, E toElement) {
-    return tailSet(fromElement).headSet(toElement);
   }
 }

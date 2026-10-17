@@ -33,8 +33,8 @@ import java.util.function.Predicate;
 /**
  * A range (or "interval") defines the <i>boundaries</i> around a contiguous span of values of some
  * {@code Comparable} type; for example, "integers from 1 to 100 inclusive." Note that it is not
- * possible to <i>iterate</i> over these contained values. To do so, pass this range instance and an
- * appropriate {@code DiscreteDomain} to {@code ContiguousSet.create}.
+ * possible to <i>iterate</i> over these contained values (Guava's {@code DiscreteDomain} and {@code
+ * ContiguousSet}, which do that, are not ported to Lava).
  *
  * <h2>Types of ranges</h2>
  *
@@ -135,16 +135,6 @@ public final class Range<C extends Comparable> extends RangeGwtSerializationDepe
     public Cut apply(Range range) {
       return range.upperBound;
     }
-  }
-
-  @SuppressWarnings("unchecked")
-  static <C extends Comparable<?>> Function<Range<C>, Cut<C>> lowerBoundFn() {
-    return (Function) LowerBoundFn.INSTANCE;
-  }
-
-  @SuppressWarnings("unchecked")
-  static <C extends Comparable<?>> Function<Range<C>, Cut<C>> upperBoundFn() {
-    return (Function) UpperBoundFn.INSTANCE;
   }
 
   static <C extends Comparable<?>> Range<C> create(Cut<C> lowerBound, Cut<C> upperBound) {
@@ -432,8 +422,8 @@ public final class Range<C extends Comparable> extends RangeGwtSerializationDepe
   }
 
   /**
-   * @deprecated Provided only to satisfy the {@link Predicate} interface; use {@link #contains}
-   *     instead.
+   * @deprecated Provided only for compatibility with Guava's {@code Predicate.apply}; use {@link
+   *     #contains} or {@link #test} instead.
    */
   @Deprecated
   public boolean apply(C input) {

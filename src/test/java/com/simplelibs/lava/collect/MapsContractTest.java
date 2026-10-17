@@ -12,9 +12,10 @@ import org.junit.jupiter.api.Nested;
 
 /**
  * Lava replacement for the guava-testlib suites of {@code MapsCollectionTest}: runs the ported
- * {@link MapInterfaceTest} over the main {@link Maps} view families, {@link HashBiMap} and its
- * views. (Exact parity with Guava's views under random mutation is checked by
- * {@link MapsViewDifferentialTest}.)
+ * {@link MapInterfaceTest} over the {@link Maps} view families (including filters of filters, the
+ * BiMap filters and sorted, navigable and plain variants), {@link HashBiMap} and its views. (Exact
+ * parity with Guava's views under random mutation is checked by {@link MapsViewDifferentialTest}
+ * and {@link MapsViewFuzzTest}.)
  */
 class MapsContractTest {
 
@@ -334,6 +335,176 @@ class MapsContractTest {
     @org.junit.jupiter.api.Test
     public void testKeySetRemoveAllNullFromEmpty() {
       assertFalse(makeEmptyMap().keySet().removeAll(null));
+    }
+  }
+
+  @Nested
+  class FilterOfFilter extends StringIntegerMapTest {
+    FilterOfFilter() {
+      super(false, true, true, true, true, false);
+    }
+
+    @Override
+    protected Map<String, Integer> makeEmptyMap() {
+      return Maps.filterValues(
+          Maps.filterKeys(new LinkedHashMap<String, Integer>(), k -> k.length() == 3), v -> v == null || v != 2);
+    }
+
+    @Override
+    protected Map<String, Integer> makePopulatedMap() {
+      return Maps.filterValues(Maps.filterKeys(populatedBacking(), k -> k.length() == 3), v -> v == null || v != 2);
+    }
+
+    /** As in Guava 27.0.1, filtered-entry maps return false here instead of throwing. */
+    @Override
+    @org.junit.jupiter.api.Test
+    public void testKeySetRemoveAllNullFromEmpty() {
+      assertFalse(makeEmptyMap().keySet().removeAll(null));
+    }
+  }
+
+  @Nested
+  class FilterKeysOfFilterEntriesNavigable extends StringIntegerMapTest {
+    FilterKeysOfFilterEntriesNavigable() {
+      super(false, false, true, true, true, false);
+    }
+
+    @Override
+    protected Map<String, Integer> makeEmptyMap() {
+      return Maps.filterKeys(
+          Maps.filterEntries(new TreeMap<String, Integer>(), e -> e.getValue() != 4),
+          k -> !k.startsWith("z"));
+    }
+
+    @Override
+    protected Map<String, Integer> makePopulatedMap() {
+      return Maps.filterKeys(
+          Maps.filterEntries(populatedTree(), e -> e.getValue() != 4), k -> !k.startsWith("z"));
+    }
+
+    /** As in Guava 27.0.1, filtered-entry maps return false here instead of throwing. */
+    @Override
+    @org.junit.jupiter.api.Test
+    public void testKeySetRemoveAllNullFromEmpty() {
+      assertFalse(makeEmptyMap().keySet().removeAll(null));
+    }
+  }
+
+  @Nested
+  class FilterKeysNavigable extends StringIntegerMapTest {
+    FilterKeysNavigable() {
+      super(false, true, true, true, true, false);
+    }
+
+    @Override
+    protected Map<String, Integer> makeEmptyMap() {
+      return Maps.filterKeys(new TreeMap<String, Integer>(), k -> k.length() == 3);
+    }
+
+    @Override
+    protected Map<String, Integer> makePopulatedMap() {
+      return Maps.filterKeys(populatedTree(), k -> k.length() == 3);
+    }
+
+    /** As in Guava 27.0.1, filtered-entry maps return false here instead of throwing. */
+    @Override
+    @org.junit.jupiter.api.Test
+    public void testKeySetRemoveAllNullFromEmpty() {
+      assertFalse(makeEmptyMap().keySet().removeAll(null));
+    }
+  }
+
+  @Nested
+  class FilterKeysSorted extends StringIntegerMapTest {
+    FilterKeysSorted() {
+      super(false, true, true, true, true, false);
+    }
+
+    @Override
+    protected Map<String, Integer> makeEmptyMap() {
+      return Maps.filterKeys(
+          (java.util.SortedMap<String, Integer>) new TreeMap<String, Integer>(), k -> k.length() == 3);
+    }
+
+    @Override
+    protected Map<String, Integer> makePopulatedMap() {
+      return Maps.filterKeys((java.util.SortedMap<String, Integer>) populatedTree(), k -> k.length() == 3);
+    }
+
+    /** As in Guava 27.0.1, filtered-entry maps return false here instead of throwing. */
+    @Override
+    @org.junit.jupiter.api.Test
+    public void testKeySetRemoveAllNullFromEmpty() {
+      assertFalse(makeEmptyMap().keySet().removeAll(null));
+    }
+  }
+
+  @Nested
+  class FilterKeysBiMap extends StringIntegerMapTest {
+    FilterKeysBiMap() {
+      super(true, true, true, true, true, false);
+    }
+
+    @Override
+    protected Map<String, Integer> makeEmptyMap() {
+      return Maps.filterKeys(HashBiMap.<String, Integer>create(), k -> k == null || k.length() == 3);
+    }
+
+    @Override
+    protected Map<String, Integer> makePopulatedMap() {
+      return Maps.filterKeys(HashBiMap.create(populatedBacking()), k -> k == null || k.length() == 3);
+    }
+
+    /** As in Guava 27.0.1, filtered-entry maps return false here instead of throwing. */
+    @Override
+    @org.junit.jupiter.api.Test
+    public void testKeySetRemoveAllNullFromEmpty() {
+      assertFalse(makeEmptyMap().keySet().removeAll(null));
+    }
+  }
+
+  @Nested
+  class FilterEntriesBiMapInverse extends StringIntegerMapTest {
+    FilterEntriesBiMapInverse() {
+      super(true, true, true, true, true, false);
+    }
+
+    @Override
+    protected Map<String, Integer> makeEmptyMap() {
+      return Maps.filterEntries(HashBiMap.<Integer, String>create(), e -> e.getKey() == null || e.getKey() != 1)
+          .inverse();
+    }
+
+    @Override
+    protected Map<String, Integer> makePopulatedMap() {
+      return Maps.filterEntries(
+              HashBiMap.create(populatedBacking()).inverse(), e -> e.getKey() == null || e.getKey() != 1)
+          .inverse();
+    }
+
+    /** As in Guava 27.0.1, filtered-entry maps return false here instead of throwing. */
+    @Override
+    @org.junit.jupiter.api.Test
+    public void testKeySetRemoveAllNullFromEmpty() {
+      assertFalse(makeEmptyMap().keySet().removeAll(null));
+    }
+  }
+
+  @Nested
+  class AsMapSortedSet extends StringIntegerMapTest {
+    AsMapSortedSet() {
+      super(false, true, false, true, true, true);
+    }
+
+    @Override
+    protected Map<String, Integer> makeEmptyMap() {
+      return Maps.asMap((java.util.SortedSet<String>) new TreeSet<String>(), String::length);
+    }
+
+    @Override
+    protected Map<String, Integer> makePopulatedMap() {
+      return Maps.asMap(
+          (java.util.SortedSet<String>) new TreeSet<>(populatedBacking().keySet()), String::length);
     }
   }
 }

@@ -386,8 +386,6 @@ public final class Maps {
    * Creates a <i>mutable</i>, empty {@code TreeMap} instance using the natural ordering of its
    * elements.
    *
-   * <p><b>Note:</b> if mutability is not required, use {@code ImmutableSortedMap.of()} instead.
-   *
    * <p><b>Note for Java 7 and later:</b> this method is now unnecessary and should be treated as
    * deprecated. Instead, use the {@code TreeMap} constructor directly, taking advantage of the new
    * <a href="http://goo.gl/iz2Wi">"diamond" syntax</a>.
@@ -401,8 +399,6 @@ public final class Maps {
   /**
    * Creates a <i>mutable</i> {@code TreeMap} instance with the same mappings as the specified map
    * and using the same ordering as the specified map.
-   *
-   * <p><b>Note:</b> if mutability is not required, use {@code ImmutableSortedMap.copyOfSorted(SortedMap)} instead.
    *
    * <p><b>Note for Java 7 and later:</b> this method is now unnecessary and should be treated as
    * deprecated. Instead, use the {@code TreeMap} constructor directly, taking advantage of the new
@@ -419,9 +415,6 @@ public final class Maps {
 
   /**
    * Creates a <i>mutable</i>, empty {@code TreeMap} instance using the given comparator.
-   *
-   * <p><b>Note:</b> if mutability is not required, use {@code
-   * ImmutableSortedMap.orderedBy(comparator).build()} instead.
    *
    * <p><b>Note for Java 7 and later:</b> this method is now unnecessary and should be treated as
    * deprecated. Instead, use the {@code TreeMap} constructor directly, taking advantage of the new
@@ -1254,11 +1247,12 @@ public final class Maps {
    * ImmutableSet<Color> allColors = ImmutableSet.of(red, green, blue);
    *
    * Map<String, Color> colorForName =
-   *     uniqueIndex(allColors, toStringFunction());
+   *     uniqueIndex(allColors, Object::toString);
    * assertThat(colorForName).containsEntry("red", red);
    * }</pre>
    *
-   * <p>If your index may associate multiple values with each key, use {@code Function) Multimaps.index}.
+   * <p>If your index may associate multiple values with each key, group the values instead, for
+   * example with {@code Collectors.groupingBy} (Lava has no {@code Multimaps.index}).
    *
    * @param values the values to use when constructing the {@code Map}
    * @param keyFunction the function used to produce the key for each value
@@ -1287,11 +1281,12 @@ public final class Maps {
    * Iterator<Color> allColors = ImmutableSet.of(red, green, blue).iterator();
    *
    * Map<String, Color> colorForName =
-   *     uniqueIndex(allColors, toStringFunction());
+   *     uniqueIndex(allColors, Object::toString);
    * assertThat(colorForName).containsEntry("red", red);
    * }</pre>
    *
-   * <p>If your index may associate multiple values with each key, use {@code Function) Multimaps.index}.
+   * <p>If your index may associate multiple values with each key, group the values instead, for
+   * example with {@code Collectors.groupingBy} (Lava has no {@code Multimaps.index}).
    *
    * @param values the values to use when constructing the {@code Map}
    * @param keyFunction the function used to produce the key for each value
@@ -1397,7 +1392,8 @@ public final class Maps {
    * Returns a {@link Converter} that converts values using {@link BiMap#get bimap.get()}, and whose
    * inverse view converts values using {@link BiMap#inverse bimap.inverse()}{@code .get()}.
    *
-   * <p>To use a plain {@link Map} as a {@link Function}, see {@code com.simplelibs.lava.base.Functions.forMap(Map)} or {@code Object)}.
+   * <p>To use a plain {@link Map} as a {@link Function}, use a method reference such as {@code
+   * map::get}.
    *
    * @since 16.0
    */
@@ -1456,24 +1452,11 @@ public final class Maps {
    * serial access, it is critical that <b>all</b> access to the backing bimap is accomplished
    * through the returned bimap.
    *
-   * <p>It is imperative that the user manually synchronize on the returned map when accessing any
-   * of its collection views:
-   *
-   * <pre>{@code
-   * BiMap<Long, String> map = Maps.synchronizedBiMap(
-   *     HashBiMap.<Long, String>create());
-   * ...
-   * Set<Long> set = map.keySet();  // Needn't be in synchronized block
-   * ...
-   * synchronized (map) {  // Synchronizing on map, not set!
-   *   Iterator<Long> it = set.iterator(); // Must be in synchronized block
-   *   while (it.hasNext()) {
-   *     foo(it.next());
-   *   }
-   * }
-   * }</pre>
-   *
-   * <p>Failure to follow this advice may result in non-deterministic behavior.
+   * <p><b>Lava:</b> Lava is single-threaded and this method exists for API compatibility. The
+   * returned bimap holds a mutex while it forwards each of its own methods (including the {@code
+   * Map} default methods) to {@code bimap}, and it caches its inverse and its views, as Guava's
+   * does. Unlike Guava's, its {@code keySet}, {@code values} and {@code entrySet} views are the
+   * backing bimap's own views and are not synchronized, so it gives no thread-safety guarantee.
    *
    * <p>The returned bimap will be serializable if the specified bimap is serializable.
    *
@@ -1583,7 +1566,7 @@ public final class Maps {
    * properties of the map, such as iteration order, are left intact. For example, the code:
    *
    * <pre>{@code
-   * SortedMap<String, Integer> map = ImmutableSortedMap.of("a", 4, "b", 9);
+   * SortedMap<String, Integer> map = new TreeMap<>(ImmutableMap.of("a", 4, "b", 9));
    * Function<Integer, Double> sqrt =
    *     new Function<Integer, Double>() {
    *       public Double apply(Integer in) {
@@ -1723,8 +1706,8 @@ public final class Maps {
    * example, the code:
    *
    * <pre>{@code
-   * Map<String, Boolean> options =
-   *     ImmutableSortedMap.of("verbose", true, "sort", false);
+   * SortedMap<String, Boolean> options =
+   *     new TreeMap<>(ImmutableMap.of("verbose", true, "sort", false));
    * EntryTransformer<String, Boolean, String> flagPrefixer =
    *     new EntryTransformer<String, Boolean, String>() {
    *       public String transformEntry(String key, Boolean value) {
@@ -2164,7 +2147,7 @@ public final class Maps {
    *
    * <p><b>Warning:</b> {@code keyPredicate} must be <i>consistent with equals</i>, as documented at
    * {@link Predicate#test}. Do not provide a predicate such as {@code
-   * CollectPredicates.instanceOf(ArrayList.class)}, which is inconsistent with equals.
+   * k -> k instanceof ArrayList}, which is inconsistent with equals.
    */
   public static <K, V> Map<K, V> filterKeys(
       Map<K, V> unfiltered, final Predicate<? super K> keyPredicate) {
@@ -2197,7 +2180,7 @@ public final class Maps {
    *
    * <p><b>Warning:</b> {@code keyPredicate} must be <i>consistent with equals</i>, as documented at
    * {@link Predicate#test}. Do not provide a predicate such as {@code
-   * CollectPredicates.instanceOf(ArrayList.class)}, which is inconsistent with equals.
+   * k -> k instanceof ArrayList}, which is inconsistent with equals.
    *
    * @since 11.0
    */
@@ -2230,7 +2213,7 @@ public final class Maps {
    *
    * <p><b>Warning:</b> {@code keyPredicate} must be <i>consistent with equals</i>, as documented at
    * {@link Predicate#test}. Do not provide a predicate such as {@code
-   * CollectPredicates.instanceOf(ArrayList.class)}, which is inconsistent with equals.
+   * k -> k instanceof ArrayList}, which is inconsistent with equals.
    *
    * @since 14.0
    */
@@ -2292,7 +2275,7 @@ public final class Maps {
    *
    * <p><b>Warning:</b> {@code valuePredicate} must be <i>consistent with equals</i>, as documented
    * at {@link Predicate#test}. Do not provide a predicate such as {@code
-   * CollectPredicates.instanceOf(ArrayList.class)}, which is inconsistent with equals.
+   * k -> k instanceof ArrayList}, which is inconsistent with equals.
    */
   public static <K, V> Map<K, V> filterValues(
       Map<K, V> unfiltered, final Predicate<? super V> valuePredicate) {
@@ -2321,7 +2304,7 @@ public final class Maps {
    *
    * <p><b>Warning:</b> {@code valuePredicate} must be <i>consistent with equals</i>, as documented
    * at {@link Predicate#test}. Do not provide a predicate such as {@code
-   * CollectPredicates.instanceOf(ArrayList.class)}, which is inconsistent with equals.
+   * k -> k instanceof ArrayList}, which is inconsistent with equals.
    *
    * @since 11.0
    */
@@ -2352,7 +2335,7 @@ public final class Maps {
    *
    * <p><b>Warning:</b> {@code valuePredicate} must be <i>consistent with equals</i>, as documented
    * at {@link Predicate#test}. Do not provide a predicate such as {@code
-   * CollectPredicates.instanceOf(ArrayList.class)}, which is inconsistent with equals.
+   * k -> k instanceof ArrayList}, which is inconsistent with equals.
    *
    * @since 14.0
    */
@@ -3333,6 +3316,11 @@ public final class Maps {
    *
    * <p>Failure to follow this advice may result in non-deterministic behavior.
    *
+   * <p><b>Lava:</b> this returns the JDK's {@link Collections#synchronizedNavigableMap}. Lava is
+   * single-threaded and this method exists for API compatibility. Unlike Guava's, the returned map
+   * creates a new view object on each call to {@code descendingMap}, {@code keySet}, {@code
+   * navigableKeySet} and {@code descendingKeySet}.
+   *
    * <p>The returned navigable map will be serializable if the specified navigable map is
    * serializable.
    *
@@ -3342,7 +3330,8 @@ public final class Maps {
    */
   public static <K, V> NavigableMap<K, V> synchronizedNavigableMap(
       NavigableMap<K, V> navigableMap) {
-    // Lava: the JDK's synchronized view has the same semantics as Guava's Synchronized.navigableMap.
+    // Lava: the JDK's synchronized view forwards like Guava's Synchronized.navigableMap, but does
+    // not cache its views.
     return Collections.synchronizedNavigableMap(navigableMap);
   }
 
@@ -3828,197 +3817,6 @@ public final class Maps {
         }
         return map().keySet().retainAll(keys);
       }
-    }
-  }
-
-  abstract static class DescendingMap<K, V> extends ForwardingMap<K, V>
-      implements NavigableMap<K, V> {
-
-    abstract NavigableMap<K, V> forward();
-
-    @Override
-    protected final Map<K, V> delegate() {
-      return forward();
-    }
-
-    private transient Comparator<? super K> comparator;
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public Comparator<? super K> comparator() {
-      Comparator<? super K> result = comparator;
-      if (result == null) {
-        Comparator<? super K> forwardCmp = forward().comparator();
-        if (forwardCmp == null) {
-          forwardCmp = (Comparator) Comparator.naturalOrder();
-        }
-        result = comparator = reverse(forwardCmp);
-      }
-      return result;
-    }
-
-    // If we inline this, we get a javac error.
-    private static <T> Comparator<T> reverse(Comparator<T> forward) {
-      return Collections.reverseOrder(forward);
-    }
-
-    @Override
-    public K firstKey() {
-      return forward().lastKey();
-    }
-
-    @Override
-    public K lastKey() {
-      return forward().firstKey();
-    }
-
-    @Override
-    public Entry<K, V> lowerEntry(K key) {
-      return forward().higherEntry(key);
-    }
-
-    @Override
-    public K lowerKey(K key) {
-      return forward().higherKey(key);
-    }
-
-    @Override
-    public Entry<K, V> floorEntry(K key) {
-      return forward().ceilingEntry(key);
-    }
-
-    @Override
-    public K floorKey(K key) {
-      return forward().ceilingKey(key);
-    }
-
-    @Override
-    public Entry<K, V> ceilingEntry(K key) {
-      return forward().floorEntry(key);
-    }
-
-    @Override
-    public K ceilingKey(K key) {
-      return forward().floorKey(key);
-    }
-
-    @Override
-    public Entry<K, V> higherEntry(K key) {
-      return forward().lowerEntry(key);
-    }
-
-    @Override
-    public K higherKey(K key) {
-      return forward().lowerKey(key);
-    }
-
-    @Override
-    public Entry<K, V> firstEntry() {
-      return forward().lastEntry();
-    }
-
-    @Override
-    public Entry<K, V> lastEntry() {
-      return forward().firstEntry();
-    }
-
-    @Override
-    public Entry<K, V> pollFirstEntry() {
-      return forward().pollLastEntry();
-    }
-
-    @Override
-    public Entry<K, V> pollLastEntry() {
-      return forward().pollFirstEntry();
-    }
-
-    @Override
-    public NavigableMap<K, V> descendingMap() {
-      return forward();
-    }
-
-    private transient Set<Entry<K, V>> entrySet;
-
-    @Override
-    public Set<Entry<K, V>> entrySet() {
-      Set<Entry<K, V>> result = entrySet;
-      return (result == null) ? entrySet = createEntrySet() : result;
-    }
-
-    abstract Iterator<Entry<K, V>> entryIterator();
-
-    Set<Entry<K, V>> createEntrySet() {
-      class EntrySetImpl extends EntrySet<K, V> {
-        @Override
-        Map<K, V> map() {
-          return DescendingMap.this;
-        }
-
-        @Override
-        public Iterator<Entry<K, V>> iterator() {
-          return entryIterator();
-        }
-      }
-      return new EntrySetImpl();
-    }
-
-    @Override
-    public Set<K> keySet() {
-      return navigableKeySet();
-    }
-
-    private transient NavigableSet<K> navigableKeySet;
-
-    @Override
-    public NavigableSet<K> navigableKeySet() {
-      NavigableSet<K> result = navigableKeySet;
-      return (result == null) ? navigableKeySet = new NavigableKeySet<>(this) : result;
-    }
-
-    @Override
-    public NavigableSet<K> descendingKeySet() {
-      return forward().navigableKeySet();
-    }
-
-    @Override
-    public NavigableMap<K, V> subMap(
-        K fromKey, boolean fromInclusive, K toKey, boolean toInclusive) {
-      return forward().subMap(toKey, toInclusive, fromKey, fromInclusive).descendingMap();
-    }
-
-    @Override
-    public SortedMap<K, V> subMap(K fromKey, K toKey) {
-      return subMap(fromKey, true, toKey, false);
-    }
-
-    @Override
-    public NavigableMap<K, V> headMap(K toKey, boolean inclusive) {
-      return forward().tailMap(toKey, inclusive).descendingMap();
-    }
-
-    @Override
-    public SortedMap<K, V> headMap(K toKey) {
-      return headMap(toKey, false);
-    }
-
-    @Override
-    public NavigableMap<K, V> tailMap(K fromKey, boolean inclusive) {
-      return forward().headMap(fromKey, inclusive).descendingMap();
-    }
-
-    @Override
-    public SortedMap<K, V> tailMap(K fromKey) {
-      return tailMap(fromKey, true);
-    }
-
-    @Override
-    public Collection<V> values() {
-      return new Values<>(this);
-    }
-
-    @Override
-    public String toString() {
-      return standardToString();
     }
   }
 

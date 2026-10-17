@@ -349,9 +349,12 @@ class MapsViewDifferentialTest {
         if (view instanceof NavigableMap) {
           NavigableMap<Integer, Integer> nav = (NavigableMap<Integer, Integer>) view;
           NavigableMap<Integer, Integer> sub = nav.subMap(k - 3, true, k + 3, false);
-          return sub + "/" + sub.put(k, v) + "/" + sub.descendingMap().firstEntry() + "/"
+          // Navigation first, so that read-only views (whose put throws) are navigated too.
+          String navigation = sub + "/" + sub.descendingMap().firstEntry() + "/"
               + nav.floorEntry(k) + "/" + nav.higherEntry(k) + "/" + nav.lowerEntry(k) + "/"
-              + nav.navigableKeySet().descendingIterator().hasNext();
+              + nav.ceilingEntry(k) + "/" + nav.navigableKeySet().descendingIterator().hasNext()
+              + "/" + comparatorSignature(nav) + "/" + comparatorSignature(nav.descendingMap());
+          return navigation + "/" + sub.put(k, v);
         }
         return view.put(k, v);
       case 19:
@@ -437,5 +440,11 @@ class MapsViewDifferentialTest {
       l = e.getClass().getName() + ": " + e.getMessage();
     }
     assertThat(l).as(what).isEqualTo(g);
+  }
+
+  /** Describes a sorted map's comparator by its behaviour, since instances differ by library. */
+  private static String comparatorSignature(SortedMap<Integer, Integer> map) {
+    java.util.Comparator<? super Integer> comparator = map.comparator();
+    return comparator == null ? "natural" : "cmp(1,2)=" + Integer.signum(comparator.compare(1, 2));
   }
 }

@@ -149,21 +149,4 @@ abstract class AbstractNavigableMap<K, V> extends IteratorBasedAbstractMap<K, V>
   public NavigableSet<K> descendingKeySet() {
     return descendingMap().navigableKeySet();
   }
-
-  @Override
-  public NavigableMap<K, V> descendingMap() {
-    return new DescendingMap();
-  }
-
-  private final class DescendingMap extends Maps.DescendingMap<K, V> {
-    @Override
-    NavigableMap<K, V> forward() {
-      return AbstractNavigableMap.this;
-    }
-
-    @Override
-    Iterator<Entry<K, V>> entryIterator() {
-      return descendingEntryIterator();
-    }
-  }
 }

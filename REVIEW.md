@@ -110,3 +110,47 @@ Review method:
 | 7 | m | Stale Javadoc: `Sets`/`Queues`, `FluentIterable`, advice to use `Iterables`/`Collections2`, a thread-safety claim, the `partitionSize` parameter name, an inaccurate `cartesianProduct` NPE clause, GWT comments and TODOs. | Accepted | Fixed. The `cartesianProduct` `@throws` now says that axes after the first empty one are not checked. |
 | 8 | n | The partition overflow fix was documented only in a code comment. | Accepted | Documented in the `partition` Javadoc. A test shows Guava 27.0.1 failing where Lava returns the right sublist. The README's migration notes will list it (M8). |
 | 9 | n | Long test lines; `newCopyOnWriteArrayList(Collection)` untested; `isPartialView` never executed. | Accepted | Reformatted `ListsContractTest`. The `Collection` branch is tested. `isPartialView` is observed through `copyOf` identity: a `charactersOf` result is reused, and cartesian element lists are copied. |
+
+**M4 mutant re-run.** The reviewer's 40 surviving mutants were re-applied to the new tests:
+
+- **Killed:** 28.
+- **Equivalent:** 6 (sub-list double-wrapping, `CopyOnWriteArrayList` already being `RandomAccess`, an unreachable saturated add, `/ by zero` thrown by the JVM itself, and others).
+- **Pattern gone:** 3, because the code they targeted was rewritten.
+- **Fixed by follow-up tests:** 3.
+  - The weakened sequential-transform test never called `size()`. Guava's `Iterables.elementsEqual` does, so the test now asserts the size.
+  - The cartesian `isPartialView` check compared two different `get(i)` results.
+  - Out-of-range `get`, `listIterator` and `subList` messages are now compared with Guava for every view.
+
+## Milestone 5 — collect.Maps, MapDifference, BiMap/HashBiMap, Range (commit `e5a3fd0`)
+
+Review method:
+- a `diff -w` of every ported file;
+- about 330 probes run against the Guava jar;
+- three randomized transcript diffs (41 view factories × 34 operation kinds, with nulls and reverse comparators);
+- a 4,000-case `Range` tie differential;
+- 44 mutants: 11 killed, 33 survived, of which 27 were real test gaps.
+
+**The ported code is faithful.** The one behavioural divergence was in the hand-written `SynchronizedBiMap` (finding 1).
+
+| # | Sev | Finding | Verdict | Resolution |
+|---|-----|---------|---------|------------|
+| 1 | M | `SynchronizedBiMap` did not forward the `Map` default methods. `replaceAll` therefore went through `setValue` and threw `value already present`, where Guava succeeds. | Accepted | It now forwards `forEach`, `replaceAll`, `getOrDefault`, `putIfAbsent`, both `replace` overloads, the three `compute*` methods, `merge` and `remove(k, v)`, as Guava's `Synchronized.SynchronizedMap` does. It also caches its views, so `values() == values()` as in Guava. |
+| 2 | M | `SynchronizedBiMap` was effectively untested: four mutants survived, and a reference to a nonexistent `SynchronizedBiMapTest` dangled. | Accepted | New `SynchronizedBiMapTest`: wrapper idempotence, inverse caching and round trip, `forcePut`, view caching, serialization, and every `Map` default method compared with Guava's wrapper (shifts, permutations and duplicate values). |
+| 3 | M | The `MapsCollectionTest` replacement lacked several families: filter-of-filter, `filterKeys`/`filterEntries` on BiMaps, sorted and navigable `filterKeys`, `asMap(SortedSet)`. It had no Java 8 `Map` methods, and the serialization of several views was untested. | Accepted | `MapsContractTest` gained these 7 `MapInterfaceTest` families. New `MapsViewFuzzTest`, adapted from the reviewer's harness, compares 54 view and wrapper families with Guava. It covers null keys and values, reverse-ordered and `naturalOrder()` trees, sorted-only maps, filters of filters, every BiMap filter and wrapper, `forEach` on the map and its views, `replaceAll`, `compute*`, `merge`, `forcePut`, comparators and liveness of derived views. Serialization tests now cover `HashBiMap.inverse()` (direction preserved), `unmodifiableNavigableMap`, `unmodifiableBiMap`, `synchronizedBiMap` and `immutableEntry`. |
+| 4 | m | Blind spots in `MapsViewDifferentialTest`: navigation came after a `put`, so read-only views threw before reaching it; navigable comparators were never compared. | Accepted | Navigation now runs before the write, and comparators are compared by behaviour. The broader cases live in `MapsViewFuzzTest`. |
+| 5 | m | The `synchronizedNavigableMap` comment claimed "the same semantics" as Guava, but the JDK wrapper does not cache its views. | Accepted | The comment and the Javadoc now state the difference. |
+| 6 | m | The `synchronizedBiMap` Javadoc promised thread-safety, and its views were uncached. | Accepted | Rewritten for the single-threaded contract. The views are now cached (see 1). |
+| 7 | m | The `Range` sorted-set fast paths, the tie-breaking in `encloseAll` and the deprecated `apply` were never exercised. | Accepted | Added a randomized comparison with Guava over natural, `naturalOrder()`, unmodifiable and reverse-ordered sets, extreme-element cases, a BigDecimal tie differential (`1.0` vs `1.00`) and an `apply`/`test` check. Two surviving fast-path mutants are equivalent: dropping a fast path takes the slow path, which gives the same result. |
+| 8 | m | `Maps` guarantees were unasserted: `unmodifiableNavigableMap` idempotence and descending-map caching, the `subMap` guard message, the `asConverter` message, the first-entry null check in `immutableEnumMap`. | Accepted | Each is tested and compared with Guava. Re-running the mutants found two more gaps, now tested: `keySet()`/`values()` `forEach`, and `Sets.filter` composition, reachable through a user map that exposes a filtered key set. The `immutableEnumMap` identity shortcut is also tested. |
+| 9 | m | Garbled or false Javadoc: `{@code Function) Multimaps.index}`, a nonexistent `base.Functions.forMap`, `ImmutableSortedMap` advice and examples, a package-private predicate class in public docs, `Range.apply`'s deprecation note, the `DiscreteDomain`/`ContiguousSet` pointers, a `Multiset` reference in `Serialization`. | Accepted | Fixed. |
+| 10 | n | Dead code: `Maps.DescendingMap` and `AbstractNavigableMap.DescendingMap` (both subclasses override `descendingMap`), `Range.lowerBoundFn`/`upperBoundFn`, every unused `standard*` helper in the package-private `Forwarding*` classes. | Accepted | Removed. The `Forwarding*` class docs now say that the helpers are not ported. |
+| 11 | n | Vacuous upstream tests were carried over: `assertWontGrow` re-checked `map1`, and `RangeNonGwtTest` repeated a call. | Accepted | `assertWontGrow` now checks `map2`, and the duplicate call is removed. |
+
+**M5 mutant re-run.** The reviewer's 34 surviving mutants were re-applied to the new tests:
+
+- **Killed:** 30 (four of them after the follow-ups in finding 8).
+- **Equivalent:** 4, all observably identical:
+  - `encloseAll` without its fast path;
+  - `containsAll` without the `naturalOrder()` disjunct;
+  - `subMap` without the `naturalOrder()` identity check, which cannot fire because a `Range` never has lower > upper;
+  - `SynchronizedBiMap.equals` without its `this` shortcut.

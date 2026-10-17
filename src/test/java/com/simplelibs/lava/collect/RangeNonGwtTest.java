@@ -35,7 +35,6 @@ public class RangeNonGwtTest extends LavaTestCase {
     NullPointerTester tester = new NullPointerTester();
 
     tester.testAllPublicStaticMethods(Range.class);
-    tester.testAllPublicStaticMethods(Range.class);
 
     tester.testAllPublicInstanceMethods(Range.all());
     tester.testAllPublicInstanceMethods(Range.open(1, 3));

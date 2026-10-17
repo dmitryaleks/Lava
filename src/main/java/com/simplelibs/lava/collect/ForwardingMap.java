@@ -20,41 +20,16 @@ package com.simplelibs.lava.collect;
 
 import com.simplelibs.lava.checker.nullness.qual.Nullable;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
 /**
- * A map which forwards all its method calls to another map. Subclasses should override one or more
- * methods to modify the behavior of the backing map as desired per the <a
- * href="http://en.wikipedia.org/wiki/Decorator_pattern">decorator pattern</a>.
- *
- * <p><b>Warning:</b> The methods of {@code ForwardingMap} forward <i>indiscriminately</i> to the
- * methods of the delegate. For example, overriding {@link #put} alone <i>will not</i> change the
- * behavior of {@link #putAll}, which can lead to unexpected behavior. In this case, you should
- * override {@code putAll} as well, either providing your own implementation, or delegating to the
- * provided {@code standardPutAll} method.
- *
- * <p><b>{@code default} method warning:</b> This class does <i>not</i> forward calls to {@code
- * default} methods. Instead, it inherits their default implementations. When those implementations
- * invoke methods, they invoke methods on the {@code ForwardingMap}.
- *
- * <p>Each of the {@code standard} methods, where appropriate, use {@link Objects#equal} to test
- * equality for both keys and values. This may not be the desired behavior for map implementations
- * that use non-standard notions of key equality, such as a {@code SortedMap} whose comparator is
- * not consistent with {@code equals}.
- *
- * <p>The {@code standard} methods and the collection views they return are not guaranteed to be
- * thread-safe, even when all of the methods that they depend on are thread-safe.
- *
- * @author Kevin Bourrillion
- * @author Jared Levy
- * @author Louis Wasserman
- * @since 2.0
+ * A map which forwards all its method calls to another map, as {@code delegate()} returns.
+ * Package-private subset of Guava's {@code ForwardingMap} used by Lava's views: it overrides the
+ * interface methods only, and Guava's {@code standard*} helper methods are not ported.
  */
 abstract class ForwardingMap<K, V> extends ForwardingObject implements Map<K, V> {
-  // TODO(lowasser): identify places where thread safety is actually lost
 
   /** Constructor for use by subclasses. */
   protected ForwardingMap() {}
@@ -133,40 +108,6 @@ abstract class ForwardingMap<K, V> extends ForwardingObject implements Map<K, V>
   }
 
   /**
-   * A sensible, albeit inefficient, definition of {@link #remove} in terms of the {@code iterator}
-   * method of {@link #entrySet}. If you override {@link #entrySet}, you may wish to override {@link
-   * #remove} to forward to this implementation.
-   *
-   * <p>Alternately, you may wish to override {@link #remove} with {@code keySet().remove}, assuming
-   * that approach would not lead to an infinite loop.
-   *
-   * @since 7.0
-   */
-  protected V standardRemove(@Nullable Object key) {
-    Iterator<Entry<K, V>> entryIterator = entrySet().iterator();
-    while (entryIterator.hasNext()) {
-      Entry<K, V> entry = entryIterator.next();
-      if (Objects.equals(entry.getKey(), key)) {
-        V value = entry.getValue();
-        entryIterator.remove();
-        return value;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * A sensible definition of {@link #clear} in terms of the {@code iterator} method of {@link
-   * #entrySet}. In many cases, you may wish to override {@link #clear} to forward to this
-   * implementation.
-   *
-   * @since 7.0
-   */
-  protected void standardClear() {
-    Iterators.clear(entrySet().iterator());
-  }
-
-  /**
    * A sensible implementation of {@link Map#keySet} in terms of the following methods: {@link
    * ForwardingMap#clear}, {@link ForwardingMap#containsKey}, {@link ForwardingMap#isEmpty}, {@link
    * ForwardingMap#remove}, {@link ForwardingMap#size}, and the {@link Set#iterator} method of
@@ -180,60 +121,5 @@ abstract class ForwardingMap<K, V> extends ForwardingObject implements Map<K, V>
     public StandardKeySet() {
       super(ForwardingMap.this);
     }
-  }
-
-  /**
-   * A sensible, albeit inefficient, definition of {@link #containsKey} in terms of the {@code
-   * iterator} method of {@link #entrySet}. If you override {@link #entrySet}, you may wish to
-   * override {@link #containsKey} to forward to this implementation.
-   *
-   * @since 7.0
-   */
-  protected boolean standardContainsKey(@Nullable Object key) {
-    return Maps.containsKeyImpl(this, key);
-  }
-
-  /**
-   * A sensible definition of {@link #isEmpty} in terms of the {@code iterator} method of {@link
-   * #entrySet}. If you override {@link #entrySet}, you may wish to override {@link #isEmpty} to
-   * forward to this implementation.
-   *
-   * @since 7.0
-   */
-  protected boolean standardIsEmpty() {
-    return !entrySet().iterator().hasNext();
-  }
-
-  /**
-   * A sensible definition of {@link #equals} in terms of the {@code equals} method of {@link
-   * #entrySet}. If you override {@link #entrySet}, you may wish to override {@link #equals} to
-   * forward to this implementation.
-   *
-   * @since 7.0
-   */
-  protected boolean standardEquals(@Nullable Object object) {
-    return Maps.equalsImpl(this, object);
-  }
-
-  /**
-   * A sensible definition of {@link #hashCode} in terms of the {@code iterator} method of {@link
-   * #entrySet}. If you override {@link #entrySet}, you may wish to override {@link #hashCode} to
-   * forward to this implementation.
-   *
-   * @since 7.0
-   */
-  protected int standardHashCode() {
-    return Sets.hashCodeImpl(entrySet());
-  }
-
-  /**
-   * A sensible definition of {@link #toString} in terms of the {@code iterator} method of {@link
-   * #entrySet}. If you override {@link #entrySet}, you may wish to override {@link #toString} to
-   * forward to this implementation.
-   *
-   * @since 7.0
-   */
-  protected String standardToString() {
-    return Maps.toStringImpl(this);
   }
 }

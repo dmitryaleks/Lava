@@ -162,8 +162,9 @@ public class MapsTest extends LavaTestCase {
      * once; make sure that passes too.
      */
     map2.putAll(map1);
-    assertThat(bucketsOf(map1))
-        .as("table size after adding " + size + " elements")
+    // Lava: Guava's test re-checks map1 here, so map2 was never checked.
+    assertThat(bucketsOf(map2))
+        .as("table size after adding " + size + " elements at once")
         .isEqualTo(initialBuckets);
   }
 

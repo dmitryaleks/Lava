@@ -23,10 +23,15 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 /**
- * The bimap returned by {@link Maps#synchronizedBiMap}: a delegating {@link BiMap} whose methods
- * synchronize on a shared mutex, as Guava's {@code Synchronized.SynchronizedBiMap} does.
+ * The bimap returned by {@link Maps#synchronizedBiMap}: a delegating {@link BiMap} that forwards
+ * every method, including the {@code Map} default methods, to its delegate while holding a shared
+ * mutex, as Guava's {@code Synchronized.SynchronizedBiMap} does. The inverse and the collection
+ * views are created once and cached.
  *
  * <p>Lava is single-threaded, so this class exists for API compatibility. Its collection views
  * ({@link #keySet}, {@link #values}, {@link #entrySet}) are the delegate's views and are not
@@ -36,6 +41,9 @@ final class SynchronizedBiMap<K, V> implements BiMap<K, V>, Serializable {
   private final BiMap<K, V> delegate;
   private final Object mutex;
   private transient @Nullable BiMap<V, K> inverse;
+  private transient @Nullable Set<K> keySet;
+  private transient @Nullable Set<V> valueSet;
+  private transient @Nullable Set<Entry<K, V>> entrySet;
 
   static <K, V> BiMap<K, V> of(BiMap<K, V> bimap) {
     if (bimap instanceof SynchronizedBiMap) {
@@ -87,9 +95,81 @@ final class SynchronizedBiMap<K, V> implements BiMap<K, V>, Serializable {
   }
 
   @Override
+  public V getOrDefault(@Nullable Object key, @Nullable V defaultValue) {
+    synchronized (mutex) {
+      return delegate.getOrDefault(key, defaultValue);
+    }
+  }
+
+  @Override
+  public void forEach(BiConsumer<? super K, ? super V> action) {
+    synchronized (mutex) {
+      delegate.forEach(action);
+    }
+  }
+
+  @Override
   public V put(K key, V value) {
     synchronized (mutex) {
       return delegate.put(key, value);
+    }
+  }
+
+  @Override
+  public V putIfAbsent(K key, V value) {
+    synchronized (mutex) {
+      return delegate.putIfAbsent(key, value);
+    }
+  }
+
+  @Override
+  public boolean replace(K key, V oldValue, V newValue) {
+    synchronized (mutex) {
+      return delegate.replace(key, oldValue, newValue);
+    }
+  }
+
+  @Override
+  public V replace(K key, V value) {
+    synchronized (mutex) {
+      return delegate.replace(key, value);
+    }
+  }
+
+  @Override
+  public V computeIfAbsent(K key, Function<? super K, ? extends V> mappingFunction) {
+    synchronized (mutex) {
+      return delegate.computeIfAbsent(key, mappingFunction);
+    }
+  }
+
+  @Override
+  public V computeIfPresent(
+      K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+    synchronized (mutex) {
+      return delegate.computeIfPresent(key, remappingFunction);
+    }
+  }
+
+  @Override
+  public V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+    synchronized (mutex) {
+      return delegate.compute(key, remappingFunction);
+    }
+  }
+
+  @Override
+  public V merge(
+      K key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
+    synchronized (mutex) {
+      return delegate.merge(key, value, remappingFunction);
+    }
+  }
+
+  @Override
+  public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
+    synchronized (mutex) {
+      delegate.replaceAll(function);
     }
   }
 
@@ -104,6 +184,13 @@ final class SynchronizedBiMap<K, V> implements BiMap<K, V>, Serializable {
   public V remove(@Nullable Object key) {
     synchronized (mutex) {
       return delegate.remove(key);
+    }
+  }
+
+  @Override
+  public boolean remove(@Nullable Object key, @Nullable Object value) {
+    synchronized (mutex) {
+      return delegate.remove(key, value);
     }
   }
 
@@ -124,21 +211,30 @@ final class SynchronizedBiMap<K, V> implements BiMap<K, V>, Serializable {
   @Override
   public Set<K> keySet() {
     synchronized (mutex) {
-      return delegate.keySet();
+      if (keySet == null) {
+        keySet = delegate.keySet();
+      }
+      return keySet;
     }
   }
 
   @Override
   public Set<V> values() {
     synchronized (mutex) {
-      return delegate.values();
+      if (valueSet == null) {
+        valueSet = delegate.values();
+      }
+      return valueSet;
     }
   }
 
   @Override
   public Set<Entry<K, V>> entrySet() {
     synchronized (mutex) {
-      return delegate.entrySet();
+      if (entrySet == null) {
+        entrySet = delegate.entrySet();
+      }
+      return entrySet;
     }
   }
 

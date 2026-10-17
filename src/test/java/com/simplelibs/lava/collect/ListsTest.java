@@ -653,6 +653,8 @@ public class ListsTest extends LavaTestCase {
     List<Integer> randomAccessList = Lists.newArrayList(SOME_SEQUENTIAL_LIST);
     List<Integer> listIteratorOnlyList = ListIterationOnlyList.of(randomAccessList);
     List<String> transform = Lists.transform(listIteratorOnlyList, SOME_FUNCTION);
+    // Guava uses Iterables.elementsEqual, which compares the sizes first.
+    assertEquals(randomAccessList.size(), transform.size());
     assertTrue(
         Iterators.elementsEqual(
             transform.iterator(), Lists.transform(randomAccessList, SOME_FUNCTION).iterator()));

@@ -77,6 +77,55 @@ class ListsDifferentialTest {
     }
   }
 
+  /** Every view's get and subList must reject bad indices with Guava's exception and message. */
+  @Test
+  void outOfRangeMessagesMatchGuava() {
+    List<String> letters = List.of("a", "b", "c");
+    List<java.util.function.Function<Boolean, List<?>>> views =
+        List.of(
+            l -> l ? Lists.asList("a", new String[] {"b", "c"})
+                : com.google.common.collect.Lists.asList("a", new String[] {"b", "c"}),
+            l -> l ? Lists.asList("a", "b", new String[] {"c"})
+                : com.google.common.collect.Lists.asList("a", "b", new String[] {"c"}),
+            l -> l ? Lists.asList("a", "b", new String[0])
+                : com.google.common.collect.Lists.asList("a", "b", new String[0]),
+            l -> l ? Lists.charactersOf("abc") : com.google.common.collect.Lists.charactersOf("abc"),
+            l -> l ? Lists.charactersOf(new StringBuilder("abc"))
+                : com.google.common.collect.Lists.charactersOf(new StringBuilder("abc")),
+            l -> l ? Lists.cartesianProduct(letters, letters, letters).get(4)
+                : com.google.common.collect.Lists.cartesianProduct(letters, letters, letters).get(4),
+            l -> l ? Lists.cartesianProduct(letters, List.of("x"))
+                : com.google.common.collect.Lists.cartesianProduct(letters, List.of("x")),
+            l -> l ? Lists.partition(new ArrayList<>(letters), 2)
+                : com.google.common.collect.Lists.partition(new ArrayList<>(letters), 2),
+            l -> l ? Lists.partition(new LinkedList<>(letters), 2)
+                : com.google.common.collect.Lists.partition(new LinkedList<>(letters), 2),
+            l -> l ? Lists.reverse(new ArrayList<>(letters))
+                : com.google.common.collect.Lists.reverse(new ArrayList<>(letters)),
+            l -> l ? Lists.reverse(new LinkedList<>(letters))
+                : com.google.common.collect.Lists.reverse(new LinkedList<>(letters)),
+            l -> l ? Lists.reverse(ImmutableList.copyOf(letters))
+                : com.google.common.collect.Lists.reverse(
+                    com.google.common.collect.ImmutableList.copyOf(letters)),
+            l -> l ? Lists.transform(new ArrayList<>(letters), s -> s + s)
+                : com.google.common.collect.Lists.transform(new ArrayList<>(letters), s -> s + s));
+    for (int v = 0; v < views.size(); v++) {
+      java.util.function.Function<Boolean, List<?>> view = views.get(v);
+      int n = view.apply(true).size();
+      for (int i = -2; i <= n + 1; i++) {
+        int index = i;
+        same("view " + v + " get(" + i + ")", () -> view.apply(false).get(index), () -> view.apply(true).get(index));
+        same("view " + v + " listIterator(" + i + ")", () -> view.apply(false).listIterator(index).nextIndex(),
+            () -> view.apply(true).listIterator(index).nextIndex());
+        for (int j = -1; j <= n + 1; j++) {
+          int to = j;
+          same("view " + v + " subList(" + i + ", " + j + ")", () -> view.apply(false).subList(index, to),
+              () -> view.apply(true).subList(index, to));
+        }
+      }
+    }
+  }
+
   @Test
   void cartesianProductTooLarge() {
     List<Integer> big = Collections.nCopies(1 << 16, 0);
