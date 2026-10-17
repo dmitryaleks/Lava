@@ -30,8 +30,8 @@ import java.util.WeakHashMap;
 /**
  * Utility methods for working with {@link Enum} instances.
  *
- * <p>Lava is single-threaded: this class keeps an unsynchronized cache of enum constants and must
- * be used from one thread.
+ * <p>Unlike most of Lava, this class is safe to use from several threads: its static methods share
+ * one cache of enum constants, which is synchronized as in Guava.
  *
  * @author Steve McKay
  * @since 9.0
@@ -74,8 +74,11 @@ public final class Enums {
   /*
    * The cache is keyed weakly by enum class and holds the constants through weak references, so it
    * never prevents an enum class (or its class loader) from being unloaded: a strong reference
-   * from a value to its constant would keep the key alive. Lava is single-threaded, so unlike
-   * Guava the cache is not synchronized.
+   * from a value to its constant would keep the key alive.
+   *
+   * Unlike Lava's objects, which callers can confine to one thread, this cache is shared by every
+   * caller of a static method, so it is synchronized as in Guava (security audit SA-01). The
+   * per-class maps are never modified after they are published.
    */
 
   private static final Map<Class<? extends Enum<?>>, Map<String, WeakReference<? extends Enum<?>>>>
@@ -93,11 +96,13 @@ public final class Enums {
 
   static <T extends Enum<T>> Map<String, WeakReference<? extends Enum<?>>> getEnumConstants(
       Class<T> enumClass) {
-    Map<String, WeakReference<? extends Enum<?>>> constants = enumConstantCache.get(enumClass);
-    if (constants == null) {
-      constants = populateCache(enumClass);
+    synchronized (enumConstantCache) {
+      Map<String, WeakReference<? extends Enum<?>>> constants = enumConstantCache.get(enumClass);
+      if (constants == null) {
+        constants = populateCache(enumClass);
+      }
+      return constants;
     }
-    return constants;
   }
 
   /**

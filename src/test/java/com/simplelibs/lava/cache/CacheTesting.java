@@ -188,6 +188,9 @@ class CacheTesting {
     if (idle && map.evictsBySize() && map.totalWeight > map.maxWeight) {
       violations.add("totalWeight " + map.totalWeight + " exceeds the maximum " + map.maxWeight);
     }
+    if (idle && (map.activeDepth != 0 || map.activeThread != null)) {
+      violations.add("an operation is still marked active: depth " + map.activeDepth);
+    }
     return violations;
   }
 

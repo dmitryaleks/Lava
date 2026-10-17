@@ -25,5 +25,14 @@
  *       java.util.function.Predicate} directly.
  *   <li>Functions and predicates are {@code java.util.function} types.
  * </ul>
+ *
+ * <p><b>Serialization.</b> Do not deserialize untrusted data. Immutable collections and maps
+ * reject streams that bypass their serialized forms, and deserialized ranges and array views
+ * re-check their invariants. But serializable views and functions, such as {@code
+ * Lists.transform} or {@code Maps.asConverter}, call the functions and comparables they hold from
+ * {@code hashCode}, {@code equals} and {@code compareTo}, so deserializing them can run code chosen
+ * by whoever wrote the stream. Where Java serialization of untrusted data cannot be avoided,
+ * install an {@link java.io.ObjectInputFilter} allow-list. See the project's {@code
+ * SECURITY_AUDIT.md}.
  */
 package com.simplelibs.lava.collect;

@@ -21,6 +21,8 @@ package com.simplelibs.lava.collect;
 import static com.simplelibs.lava.base.Preconditions.checkNotNull;
 
 import com.simplelibs.lava.checker.nullness.qual.Nullable;
+import java.io.InvalidObjectException;
+import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.AbstractCollection;
 import java.util.Collection;
@@ -355,6 +357,15 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E> imple
   Object writeReplace() {
     // We serialize by default to ImmutableList, the simplest thing that works.
     return new ImmutableList.SerializedForm(toArray());
+  }
+
+  /**
+   * Instances are serialized through {@code writeReplace} to a serialized form, which rebuilds them
+   * through the validating factories. A stream that names this class directly would skip that
+   * validation, so it is rejected, as Guava does for {@code ImmutableList} (security audit SA-05).
+   */
+  private void readObject(ObjectInputStream stream) throws InvalidObjectException {
+    throw new InvalidObjectException("Use SerializedForm");
   }
 
   /**

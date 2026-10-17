@@ -25,6 +25,7 @@ import static java.lang.Double.POSITIVE_INFINITY;
 
 import com.simplelibs.lava.base.Converter;
 import com.simplelibs.lava.checker.nullness.qual.Nullable;
+import java.io.InvalidObjectException;
 import java.io.Serializable;
 import java.util.AbstractList;
 import java.util.Arrays;
@@ -256,11 +257,17 @@ public final class Doubles {
    * @return a single array containing all the values from the source arrays, in order
    */
   public static double[] concat(double[]... arrays) {
-    int length = 0;
+    // Lava: sum in a long and reject a total that does not fit in an array, as later Guava
+    // releases do (security audit SA-10); Guava 27.0.1 overflows.
+    long length = 0;
     for (double[] array : arrays) {
       length += array.length;
     }
-    double[] result = new double[length];
+    checkArgument(
+        length == (int) length,
+        "the total number of elements (%s) in the arrays must fit in an int",
+        length);
+    double[] result = new double[(int) length];
     int pos = 0;
     for (double[] array : arrays) {
       System.arraycopy(array, 0, result, pos, array.length);
@@ -339,8 +346,9 @@ public final class Doubles {
       return "";
     }
 
-    // For pre-sizing a builder, just get the right order of magnitude
-    StringBuilder builder = new StringBuilder(array.length * 12);
+    // For pre-sizing a builder, just get the right order of magnitude. Lava: without overflowing
+    // for huge arrays (security audit SA-10).
+    StringBuilder builder = new StringBuilder(Math.min(array.length, Integer.MAX_VALUE / 12) * 12);
     builder.append(array[0]);
     for (int i = 1; i < array.length; i++) {
       builder.append(separator).append(array[i]);
@@ -510,6 +518,14 @@ public final class Doubles {
       this.array = array;
       this.start = start;
       this.end = end;
+    }
+
+    /** Lava: a deserialized view must still lie within its array (security audit SA-07). */
+    private Object readResolve() throws InvalidObjectException {
+      if (array == null || start < 0 || end < start || end > array.length) {
+        throw new InvalidObjectException("Invalid array view");
+      }
+      return this;
     }
 
     @Override

@@ -44,6 +44,7 @@ import java.util.AbstractSet;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.ConcurrentModificationException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -262,7 +263,7 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
     return a != null && b != null && equivalence.equivalent(a, b);
   }
 
-  static final class StrongKey implements KeyRef {
+  static final class StrongKey implements KeyRef, Comparable<StrongKey> {
     private final Object key;
     private final int hash;
     private final Equivalence<Object> equivalence;
@@ -291,6 +292,31 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
     @Override
     public int hashCode() {
       return hash;
+    }
+
+    /**
+     * Orders two equals-compared keys of the same comparable class by their natural order, and
+     * treats every other pair as unordered (0). {@code HashMap} uses this only among keys whose
+     * hash codes collide: it keeps such a bin a balanced tree, as it does for unwrapped {@code
+     * String} keys, instead of searching it linearly (security audit SA-08). As for any {@code
+     * HashMap}, the natural order must be consistent with {@code equals}.
+     */
+    @Override
+    @SuppressWarnings({"unchecked", "rawtypes"}) // keys of one class, checked to be Comparable
+    public int compareTo(StrongKey that) {
+      Object a = key;
+      Object b = that.key;
+      if (equivalence != Equivalence.equals()
+          || that.equivalence != equivalence
+          || a.getClass() != b.getClass()
+          || !(a instanceof Comparable)) {
+        return 0;
+      }
+      try {
+        return ((Comparable) a).compareTo(b);
+      } catch (RuntimeException e) {
+        return 0;
+      }
     }
   }
 
@@ -655,14 +681,57 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
 
   /** Starts a public operation: reads the ticker and runs maintenance. */
   private long beginOperation() {
-    long now = ticker.read();
-    runMaintenance(now);
-    return now;
+    enter();
+    try {
+      long now = ticker.read();
+      runMaintenance(now);
+      return now;
+    } catch (Throwable t) {
+      exit();
+      throw t;
+    }
   }
 
   /** Ends a public operation: delivers pending notifications. */
   private void endOperation() {
-    flushNotifications();
+    try {
+      flushNotifications();
+    } finally {
+      exit();
+    }
+  }
+
+  /*
+   * Lava: best-effort detection of use from two threads at once (security audit SA-02). The thread
+   * running the outermost operation owns the cache until that operation ends; nested operations
+   * (from loaders, listeners or compute functions) are allowed on the same thread, and another
+   * thread may use the cache afterwards. Like ConcurrentModificationException in the JDK's
+   * collections, this is not guaranteed to detect every concurrent use: the fields are not
+   * synchronized. They are package-private for CacheTesting's invariant checks.
+   */
+
+  @Nullable Thread activeThread;
+  int activeDepth;
+
+  private void enter() {
+    Thread current = Thread.currentThread();
+    if (activeDepth == 0) {
+      activeThread = current;
+    } else if (activeThread != current) {
+      throw new ConcurrentModificationException(
+          "Lava caches are not thread-safe: used by "
+              + current.getName()
+              + " while "
+              + activeThread.getName()
+              + " is using it");
+    }
+    activeDepth++;
+  }
+
+  private void exit() {
+    if (--activeDepth == 0) {
+      activeThread = null;
+    }
   }
 
   private void runMaintenance(long now) {
@@ -1121,6 +1190,7 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
    * operation of its own.
    */
   private void completeRefresh(K key, LoadingValue<V> loading, ListenableFuture<V> future) {
+    enter();
     try {
       getAndRecordStats(key, loading, future);
     } catch (Throwable t) {
@@ -1132,6 +1202,7 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
 
   void refresh(K key) {
     checkNotNull(key);
+    enter();
     try {
       refresh(key, defaultLoader, false);
     } finally {
@@ -1741,11 +1812,17 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
    * Never throws {@code ConcurrentModificationException}; order is unspecified.
    */
   abstract class HashIterator<T> implements Iterator<T> {
-    private final Iterator<Node<K, V>> nodes = new ArrayList<>(table.values()).iterator();
+    private final Iterator<Node<K, V>> nodes;
     @Nullable WriteThroughEntry nextExternal;
     @Nullable WriteThroughEntry lastReturned;
 
     HashIterator() {
+      enter();
+      try {
+        nodes = new ArrayList<>(table.values()).iterator();
+      } finally {
+        exit();
+      }
       advance();
     }
 
@@ -1754,16 +1831,21 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
 
     final void advance() {
       nextExternal = null;
-      while (nodes.hasNext()) {
-        Node<K, V> node = nodes.next();
-        if (isLinked(node)) {
-          K key = node.getKey();
-          V value = getLiveValue(node, ticker.read());
-          if (key != null && value != null) {
-            nextExternal = new WriteThroughEntry(key, value);
-            return;
+      enter();
+      try {
+        while (nodes.hasNext()) {
+          Node<K, V> node = nodes.next();
+          if (isLinked(node)) {
+            K key = node.getKey();
+            V value = getLiveValue(node, ticker.read());
+            if (key != null && value != null) {
+              nextExternal = new WriteThroughEntry(key, value);
+              return;
+            }
           }
         }
+      } finally {
+        exit();
       }
     }
 

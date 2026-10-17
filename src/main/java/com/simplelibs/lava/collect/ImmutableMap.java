@@ -24,6 +24,8 @@ import static com.simplelibs.lava.collect.CollectPreconditions.checkEntryNotNull
 import static com.simplelibs.lava.collect.CollectPreconditions.checkNonnegative;
 
 import com.simplelibs.lava.checker.nullness.qual.Nullable;
+import java.io.InvalidObjectException;
+import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.AbstractMap;
 import java.util.Arrays;
@@ -893,5 +895,14 @@ public abstract class ImmutableMap<K, V> implements Map<K, V>, Serializable {
 
   Object writeReplace() {
     return new SerializedForm(this);
+  }
+
+  /**
+   * Instances are serialized through {@code writeReplace} to a serialized form, which rebuilds them
+   * through the validating factories. A stream that names this class directly would skip that
+   * validation, so it is rejected, as Guava does for {@code ImmutableList} (security audit SA-05).
+   */
+  private void readObject(ObjectInputStream stream) throws InvalidObjectException {
+    throw new InvalidObjectException("Use SerializedForm");
   }
 }

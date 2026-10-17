@@ -17,7 +17,16 @@
 /**
  * <p><b>Lava:</b> a single-threaded, Guava-independent port of Guava 27.0.1's event bus. Buses and
  * their listeners must be used from one thread; see {@link com.simplelibs.lava.eventbus.EventBus}.
- * The remainder of this overview is Guava's.
+ * As in Guava, every event is delivered on the thread that posts it.
+ *
+ * <p><b>Security</b>, as in Guava: registering an object makes its {@code @Subscribe} methods,
+ * private ones included, callable (through {@code setAccessible}) by anyone who can post to the
+ * bus, so register only trusted subscribers and keep broad ({@code Object}) subscriptions off buses
+ * that carry untrusted events. The default exception handler logs the {@code toString()} of the
+ * subscriber and of the event; install a {@link
+ * com.simplelibs.lava.eventbus.SubscriberExceptionHandler} if those can hold sensitive data.
+ *
+ * <p>The remainder of this overview is Guava's.
  *
  * The EventBus allows publish-subscribe-style communication between components without requiring
  * the components to explicitly register with one another (and thus be aware of each other). It is

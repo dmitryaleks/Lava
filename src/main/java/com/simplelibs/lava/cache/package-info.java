@@ -28,7 +28,10 @@
  * href="https://github.com/google/guava/wiki/CachesExplained">caches</a>; the API is the same.
  *
  * <p><b>Single-threaded.</b> Caches, their {@code asMap()} views and {@code
- * AbstractCache.SimpleStatsCounter} are not thread-safe and must be confined to one thread.
+ * AbstractCache.SimpleStatsCounter} are not thread-safe and must be confined to one thread. A
+ * cache can be handed to another thread between operations, but a cache used by a second thread
+ * while an operation is running throws {@code ConcurrentModificationException}; like the JDK's,
+ * this detection is best-effort.
  * Executors passed to {@link com.simplelibs.lava.cache.CacheLoader#asyncReloading} and {@link
  * com.simplelibs.lava.cache.RemovalListeners#asynchronous} must run their tasks on that thread
  * (a direct executor, or a queue the thread drains). Immutable values ({@code CacheStats}, {@code
@@ -65,6 +68,11 @@
  *   <li>Caches are not serializable (Guava serializes only their configuration).
  *   <li>Logger names start with {@code com.simplelibs.lava.cache}.
  * </ul>
+ *
+ * <p><b>Security.</b> Specifications passed to {@link
+ * com.simplelibs.lava.cache.CacheBuilder#from(String)} are trusted configuration: they set table
+ * sizes and limits. Exception messages and log records include the {@code toString()} of keys
+ * and values, as in Guava, so keep secrets out of them.
  *
  * @author Charles Fry
  */

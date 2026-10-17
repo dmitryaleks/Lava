@@ -37,7 +37,13 @@ Beyond the imports:
   - Anonymous `Predicate` classes must rename `apply` to `test`.
   - Code that calls `.apply(x)` on a predicate Lava returns (for example `Equivalence.equivalentTo(t)`) must call `.test(x)`.
   - `Range` keeps a deprecated `apply`. Anonymous `Function` and `Supplier` classes are unaffected.
-- **Threads.** Nothing is thread-safe except immutable values. Confine caches, event buses, mutable collections and views to one thread.
+- **Threads.** Confine caches, event buses, mutable collections and views to one thread. A cache can be handed to another thread between operations. A cache used by a second thread while an operation is running throws `ConcurrentModificationException`, but this detection is best-effort. These parts are thread-safe, as in Guava:
+  - immutable values;
+  - the static `Enums` methods;
+  - `ExecutionList`, and therefore `ListenableFutureTask`;
+  - the dispatch queue of `AsyncEventBus`.
+
+  Events are always delivered on the thread that posts them.
   - Executors given to `AsyncEventBus`, `CacheLoader.asyncReloading` and `RemovalListeners.asynchronous` must run their tasks on that thread: a direct executor, or a queue the thread drains.
   - `CacheBuilder.concurrencyLevel` is accepted but has no effect. Eviction is exact LRU, as with Guava's `concurrencyLevel(1)`.
 - **Omitted members**, all listed with reasons in `src/test/resources/api-exclusions.txt`:
@@ -62,6 +68,18 @@ Beyond the imports:
 - **Names**: logger names, and `toString`s that embed the name of a Lava class (such as `Enums.stringConverter(RemovalCause.class)`), use the `com.simplelibs.lava` packages.
 - **Serialization**: Lava's serialized forms are not wire-compatible with Guava's.
 
+## Security
+
+`SECURITY_AUDIT.md` records the security review of every Lava class, and the fixes made since. When using Lava:
+
+- **Do not deserialize untrusted data.**
+  - Immutable collections reject streams that bypass their serialized forms, and deserialized ranges and array views re-check their invariants.
+  - But serializable views, converters and equivalences call the functions and comparables they hold while being deserialized, as Guava's do.
+  - If Java serialization of untrusted data is unavoidable, install an `ObjectInputFilter` allow-list.
+- **Treat `CacheBuilder.from(spec)` strings as trusted configuration.** They set sizes and limits.
+- **Keep secrets out of `toString()`.** Exception messages and the event bus's default exception handler include the `toString()` of keys, values, subscribers and events.
+- **Register only trusted subscribers.** The event bus makes `@Subscribe` methods accessible through reflection, private ones included, so anyone who can post to the bus can call them.
+
 The package documentation of each package (`package-info.java`) lists its differences in detail.
 
 ## Building and testing
@@ -78,6 +96,8 @@ The package documentation of each package (`package-info.java`) lists its differ
 4. Verifies that the main code neither mentions nor depends on Guava. The compile and runtime classpaths are empty.
 
 Reports are written to `build/reports/tests/test` and `build/reports/jacoco`.
+
+**Dependency verification.** The Gradle wrapper pins the distribution's SHA-256. Gradle also checks every build and test dependency it downloads against `gradle/verification-metadata.xml`. After changing a dependency, regenerate that file with `./gradlew --write-verification-metadata sha256 check`, and review the diff.
 
 Guava 27.0.1 is a *test-only* dependency, used as an oracle:
 

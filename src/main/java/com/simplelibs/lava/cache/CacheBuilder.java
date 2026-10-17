@@ -270,6 +270,10 @@ public final class CacheBuilder<K, V> {
    * Constructs a new {@code CacheBuilder} instance with the settings specified in {@code spec}.
    * This is especially useful for command-line configuration of a {@code CacheBuilder}.
    *
+   * <p><b>Lava:</b> treat {@code spec} as trusted configuration. It sets limits and sizes, and an
+   * {@code initialCapacity} near 2<sup>30</sup> allocates gigabytes on the first write, as in
+   * Guava.
+   *
    * @param spec a String in the format specified by {@link CacheBuilderSpec}
    * @since 12.0
    */

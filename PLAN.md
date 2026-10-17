@@ -181,7 +181,7 @@ Source references: `guava/src/com/google/common/base/{Converter,Optional,Absent,
 - **Enums:**
   - `getField`.
   - `getIfPresent`, using Guava's unloading-safe cache: a `WeakHashMap<Class, Map<String, WeakReference<Enum>>>`,
-    unsynchronized because the code is single-threaded.
+    synchronized as in Guava: static methods cannot be confined to one thread (security audit SA-01).
   - `stringConverter` (a new instance per call; equals by class; `"Enums.stringConverter(<fqcn>.class)"`).
 - Tests:
   - Port `DoublesTest`, including the all-code-points `tryParse` sweep compared against Guava's regex
@@ -343,8 +343,8 @@ Faithful to `EventBus.java`, `Dispatcher.java`, `Subscriber.java`, `SubscriberRe
   - `SubscriberExceptionContext`, with a package-private constructor.
   - `SubscriberExceptionHandler`.
 - **Dispatcher (pkg-private), single-threaded:**
-  - `perThreadDispatchQueue` uses plain fields (an `ArrayDeque` queue and a `dispatching` flag) and is
-    breadth-first and FIFO. Reentrant posts only enqueue. An escaping `Error` clears the queue in `finally`.
+  - `perThreadDispatchQueue` keeps its `ArrayDeque` queue and `dispatching` flag per thread, as Guava
+    does (plain fields at first; changed after security audit SA-03), and is breadth-first and FIFO. Reentrant posts only enqueue. An escaping `Error` clears the queue in `finally`.
   - `legacyAsync` enqueues all (event, subscriber) pairs, then drains.
   - `immediate` is depth-first.
 - **Subscriber:**

@@ -21,6 +21,7 @@ import static com.simplelibs.lava.base.Preconditions.checkNotNull;
 import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Handler for dispatching events to subscribers, providing different event ordering guarantees that
@@ -37,8 +38,7 @@ abstract class Dispatcher {
   /**
    * Returns a dispatcher that queues events that are posted reentrantly while the bus is already
    * dispatching an event, guaranteeing that all events are dispatched to all subscribers in the
-   * order they are posted. (Guava keeps this queue per thread; Lava, being single-threaded, keeps
-   * one per bus.)
+   * order they are posted.
    *
    * <p>When all subscribers are dispatched to using a <i>direct</i> executor (which dispatches on
    * the same thread that posts the event), this yields a breadth-first dispatch order on each
@@ -77,34 +77,36 @@ abstract class Dispatcher {
     // This dispatcher matches the original dispatch behavior of EventBus.
 
     /*
-     * Lava is single-threaded, so the queue and the dispatching flag are plain fields where Guava
-     * uses ThreadLocals; on the one owning thread the behavior is identical.
+     * The queue and the dispatching flag are per thread, as in Guava. Lava once kept them in plain
+     * fields: an event posted on another thread during a dispatch was then delivered later by the
+     * dispatching thread, so its subscribers ran with that thread's context (security audit SA-03).
      */
 
-    /** Queue of events to dispatch. */
-    private final Queue<Event> queue = new ArrayDeque<>();
+    /** Per-thread queue of events to dispatch. */
+    private final ThreadLocal<Queue<Event>> queue = ThreadLocal.withInitial(ArrayDeque::new);
 
-    /** Dispatch state, used to avoid reentrant event dispatching. */
-    private boolean dispatching;
+    /** Per-thread dispatch state, used to avoid reentrant event dispatching. */
+    private final ThreadLocal<Boolean> dispatching = ThreadLocal.withInitial(() -> false);
 
     @Override
     void dispatch(Object event, Iterator<Subscriber> subscribers) {
       checkNotNull(event);
       checkNotNull(subscribers);
-      queue.offer(new Event(event, subscribers));
+      Queue<Event> queueForThread = queue.get();
+      queueForThread.offer(new Event(event, subscribers));
 
-      if (!dispatching) {
-        dispatching = true;
+      if (!dispatching.get()) {
+        dispatching.set(true);
         try {
           Event nextEvent;
-          while ((nextEvent = queue.poll()) != null) {
+          while ((nextEvent = queueForThread.poll()) != null) {
             while (nextEvent.subscribers.hasNext()) {
               nextEvent.subscribers.next().dispatchEvent(nextEvent.event);
             }
           }
         } finally {
-          dispatching = false;
-          queue.clear();
+          dispatching.remove();
+          queue.remove();
         }
       }
     }
@@ -141,9 +143,11 @@ abstract class Dispatcher {
     // probably provide a stronger order guarantee, though that order would obviously be different
     // in some cases.
 
-    /** Global event queue. */
-    private final Queue<EventWithSubscriber> queue =
-        new ArrayDeque<>();
+    /**
+     * Global event queue. It is concurrent, as in Guava, because this dispatcher serves {@code
+     * AsyncEventBus}, whose executor may run on other threads (security audit SA-02).
+     */
+    private final Queue<EventWithSubscriber> queue = new ConcurrentLinkedQueue<>();
 
     @Override
     void dispatch(Object event, Iterator<Subscriber> subscribers) {

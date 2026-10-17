@@ -85,8 +85,9 @@ import java.util.logging.Logger;
  *
  * <p><b>Lava:</b> unlike Guava's, this class is <b>not</b> thread-safe. Register, unregister and
  * post on one thread; reentrant posts from subscribers are queued and delivered breadth-first, as
- * in Guava. Using a bus from several threads is not detected: a post made while another thread is
- * dispatching may be queued and delivered on that other thread. Errors found while discovering
+ * in Guava. Using a bus from several threads is not detected, but each event is still delivered on
+ * the thread that posts it, as in Guava, so subscribers run with the poster's thread-local context.
+ * Errors found while discovering
  * subscriber methods propagate directly: a {@code @Subscribe} method with the wrong number of
  * parameters makes {@link #register} and {@link #unregister} throw {@link
  * IllegalArgumentException} (Guava wraps it in an {@code UncheckedExecutionException}), and an

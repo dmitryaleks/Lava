@@ -35,8 +35,9 @@ import java.util.logging.Logger;
  * during {@code Executor.execute} (e.g., a {@code RejectedExecutionException} or an exception
  * thrown by {@linkplain MoreExecutors#directExecutor direct execution}) will be caught and logged.
  *
- * <p>Lava is single-threaded: this class does not synchronize, so {@link #add} and {@link
- * #execute} must be called on the same thread.
+ * <p>Lava: this class exists to hand listeners to executors, which may run on other threads, so
+ * {@link #add} and {@link #execute} are synchronized, as in Guava (security audit SA-02). This
+ * makes {@link ListenableFutureTask} safe to run on a thread pool.
  *
  * @author Nishant Thakkar
  * @author Sven Mawson
@@ -71,10 +72,14 @@ public final class ExecutionList {
     checkNotNull(runnable, "Runnable was null.");
     checkNotNull(executor, "Executor was null.");
 
-    // Single-threaded: no locking. We only add to the list if we have not yet started execution.
-    if (!executed) {
-      runnables = new RunnableExecutorPair(runnable, executor, runnables);
-      return;
+    // Lock while we check state. We must maintain the lock while adding the new pair so that
+    // another thread can't run the list out from under us. We only add to the list if we have not
+    // yet started execution.
+    synchronized (this) {
+      if (!executed) {
+        runnables = new RunnableExecutorPair(runnable, executor, runnables);
+        return;
+      }
     }
     // Execute the runnable immediately. Because of scheduling this may end up getting called before
     // some of the previously added runnables, but we're OK with that. If we want to change the
@@ -95,13 +100,17 @@ public final class ExecutionList {
    * @since 10.0 (present in 1.0 as {@code run})
    */
   public void execute() {
+    // Lock while we update our state so the add method above will finish adding any listeners
+    // before we start to run them.
     RunnableExecutorPair list;
-    if (executed) {
-      return;
+    synchronized (this) {
+      if (executed) {
+        return;
+      }
+      executed = true;
+      list = runnables;
+      runnables = null; // allow GC to free listeners even if this stays around for a while.
     }
-    executed = true;
-    list = runnables;
-    runnables = null; // allow GC to free listeners even if this stays around for a while.
     // If we succeeded then list holds all the runnables we to execute. The pairs in the stack are
     // in the opposite order from how they were added so we need to reverse the list to fulfill our
     // contract.

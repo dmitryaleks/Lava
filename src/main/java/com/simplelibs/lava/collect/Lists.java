@@ -28,6 +28,7 @@ import static com.simplelibs.lava.collect.CollectPreconditions.checkNonnegative;
 import static com.simplelibs.lava.collect.CollectPreconditions.checkRemove;
 
 import com.simplelibs.lava.checker.nullness.qual.Nullable;
+import java.io.InvalidObjectException;
 import java.io.Serializable;
 import java.math.RoundingMode;
 import java.util.AbstractList;
@@ -298,6 +299,14 @@ public final class Lists {
       this.rest = checkNotNull(rest);
     }
 
+    /** Lava: re-checks the constructor's check on deserialization (security audit SA-07). */
+    private Object readResolve() throws InvalidObjectException {
+      if (rest == null) {
+        throw new InvalidObjectException("Missing elements");
+      }
+      return this;
+    }
+
     @Override
     public int size() {
       return CollectMath.saturatedAdd(rest.length, 1);
@@ -324,6 +333,14 @@ public final class Lists {
       this.first = first;
       this.second = second;
       this.rest = checkNotNull(rest);
+    }
+
+    /** Lava: re-checks the constructor's check on deserialization (security audit SA-07). */
+    private Object readResolve() throws InvalidObjectException {
+      if (rest == null) {
+        throw new InvalidObjectException("Missing elements");
+      }
+      return this;
     }
 
     @Override

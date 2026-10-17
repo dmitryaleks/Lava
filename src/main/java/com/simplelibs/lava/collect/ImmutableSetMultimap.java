@@ -622,11 +622,7 @@ public class ImmutableSetMultimap<K, V> extends ImmutableMultimap<K, V>
         throw new InvalidObjectException("Invalid value count " + valueCount);
       }
 
-      List<Object> values = new ArrayList<>(valueCount);
-      for (int j = 0; j < valueCount; j++) {
-        values.add(stream.readObject());
-      }
-      ImmutableSet<Object> valueSet = valueSet(valueComparator, values);
+      ImmutableSet<Object> valueSet = valueSet(valueComparator, readValues(stream, valueCount));
       if (valueSet.size() != valueCount) {
         throw new InvalidObjectException("Duplicate key-value pairs exist for key " + key);
       }
@@ -644,6 +640,20 @@ public class ImmutableSetMultimap<K, V> extends ImmutableMultimap<K, V>
     FieldSettersHolder.MAP_FIELD_SETTER.set(this, tmpMap);
     FieldSettersHolder.SIZE_FIELD_SETTER.set(this, tmpSize);
     SetFieldSettersHolder.EMPTY_SET_FIELD_SETTER.set(this, emptySet(valueComparator));
+  }
+
+  /**
+   * Reads {@code count} values. The list grows with the values actually read: sizing it from the
+   * count, which comes from the stream, would let a short stream request a huge array (security
+   * audit SA-04; Guava 27.0.1 also grows a builder).
+   */
+  static List<Object> readValues(ObjectInputStream stream, int count)
+      throws IOException, ClassNotFoundException {
+    List<Object> values = new ArrayList<>();
+    for (int j = 0; j < count; j++) {
+      values.add(stream.readObject());
+    }
+    return values;
   }
 
   private static final long serialVersionUID = 0;

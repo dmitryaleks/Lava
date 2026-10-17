@@ -22,6 +22,7 @@ import static com.simplelibs.lava.base.Preconditions.checkNotNull;
 
 import com.simplelibs.lava.base.Equivalence;
 import com.simplelibs.lava.checker.nullness.qual.Nullable;
+import java.io.InvalidObjectException;
 import java.io.Serializable;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -647,12 +648,22 @@ public final class Range<C extends Comparable> extends RangeGwtSerializationDepe
     return (SortedSet<T>) iterable;
   }
 
-  Object readResolve() {
-    if (this.equals(ALL)) {
-      return all();
-    } else {
-      return this;
+  Object readResolve() throws InvalidObjectException {
+    // Lava: default deserialization skips the constructor's checks, so repeat them (security audit
+    // SA-07): ordered, non-null bounds whose endpoints are present.
+    Range<C> range;
+    try {
+      range = create(lowerBound, upperBound);
+      if (range.hasLowerBound()) {
+        checkNotNull(range.lowerEndpoint());
+      }
+      if (range.hasUpperBound()) {
+        checkNotNull(range.upperEndpoint());
+      }
+    } catch (RuntimeException e) {
+      throw (InvalidObjectException) new InvalidObjectException("Invalid range").initCause(e);
     }
+    return range.equals(ALL) ? all() : range;
   }
 
   @SuppressWarnings("unchecked") // this method may throw CCE
