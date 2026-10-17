@@ -37,10 +37,6 @@ import java.util.concurrent.FutureTask;
  * @since 1.0
  */
 public class ListenableFutureTask<V> extends FutureTask<V> implements ListenableFuture<V> {
-  // TODO(cpovirk): explore ways of making ListenableFutureTask final. There are some valid reasons
-  // such as BoundedQueueExecutorService to allow extends but it would be nice to make it final to
-  // avoid unintended usage.
-
   // The execution list to hold our listeners.
   private final ExecutionList executionList = new ExecutionList();
 

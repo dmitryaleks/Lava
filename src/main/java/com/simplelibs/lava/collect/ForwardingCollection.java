@@ -22,9 +22,10 @@ import java.util.Collection;
 import java.util.Iterator;
 
 /**
- * A collection which forwards all its method calls to another collection, as {@code delegate()} returns.
- * Package-private subset of Guava's {@code ForwardingCollection} used by Lava's views: it overrides the
- * interface methods only, and Guava's {@code standard*} helper methods are not ported.
+ * A collection which forwards all its method calls to another collection, as {@code delegate()}
+ * returns. Package-private subset of Guava's {@code ForwardingCollection} used by Lava's views: it
+ * overrides the interface methods only, and Guava's {@code standard*} helper methods are not
+ * ported.
  */
 abstract class ForwardingCollection<E> extends ForwardingObject implements Collection<E> {
 

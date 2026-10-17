@@ -67,7 +67,8 @@ public class DeadEvent {
   public String toString() {
     // Guava's MoreObjects.toStringHelper(this).add("source", ...).add("event", ...) format,
     // which renders arrays element by element.
-    return getClass().getSimpleName() + "{source=" + render(source) + ", event=" + render(event) + "}";
+    return getClass().getSimpleName()
+        + "{source=" + render(source) + ", event=" + render(event) + "}";
   }
 
   private static String render(Object value) {

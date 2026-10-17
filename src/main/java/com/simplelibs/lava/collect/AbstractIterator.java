@@ -156,7 +156,7 @@ abstract class AbstractIterator<T> extends UnmodifiableIterator<T> {
 
   /**
    * Returns the next element in the iteration without advancing the iteration, according to the
-   * contract of {@link PeekingIterator#peek()}.
+   * contract of {@code PeekingIterator#peek()}.
    *
    * <p>Implementations of {@code AbstractIterator} that wish to expose this functionality should
    * implement {@code PeekingIterator}.

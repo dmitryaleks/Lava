@@ -62,8 +62,8 @@ import java.util.function.Predicate;
  *       details. View collections such as {@link ImmutableMap#keySet} iterate in the same order as
  *       the parent, except as noted.
  *   <li><b>Thread safety.</b> (Lava is single-threaded, but immutable collections, having no
- *       mutable state, remain safe to share.) It is safe to access this collection concurrently from multiple
- *       threads.
+ *       mutable state, remain safe to share.) It is safe to access this collection concurrently
+ *       from multiple threads.
  *   <li><b>Integrity.</b> This type cannot be subclassed outside this package (which would allow
  *       these guarantees to be violated).
  * </ul>
@@ -158,8 +158,6 @@ import java.util.function.Predicate;
  * @since 2.0
  */
 @SuppressWarnings("serial") // we're overriding default serialization
-// TODO(kevinb): I think we should push everything down to "BaseImmutableCollection" or something,
-// just to do everything we can to emphasize the "practically an interface" nature of this class.
 public abstract class ImmutableCollection<E> extends AbstractCollection<E> implements Serializable {
   /*
    * We expect SIZED (and SUBSIZED, if applicable) to be added by the spliterator factory methods.

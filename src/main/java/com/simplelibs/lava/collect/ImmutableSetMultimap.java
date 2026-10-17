@@ -139,7 +139,9 @@ public class ImmutableSetMultimap<K, V> extends ImmutableMultimap<K, V>
         ImmutableSetMultimap.Builder<K, V>::new,
         (builder, input) -> {
           K key = checkNotNull(keyFunction.apply(input));
-          valuesFunction.apply(input).forEachOrdered(value -> builder.put(key, checkNotNull(value)));
+          valuesFunction
+              .apply(input)
+              .forEachOrdered(value -> builder.put(key, checkNotNull(value)));
         },
         ImmutableSetMultimap.Builder::combine,
         ImmutableSetMultimap.Builder::build);
@@ -324,15 +326,14 @@ public class ImmutableSetMultimap<K, V> extends ImmutableMultimap<K, V>
      * and, as in Guava (which stores them in an {@code ImmutableSortedSet}), values that the
      * comparator considers equal are collapsed, keeping the first one added.
      *
-     * <p><b>Lava:</b> {@code ImmutableSortedSet} is not ported, so the sets returned by {@code get()}
-     * and the {@link Multimap#asMap()} view are ordered {@link ImmutableSet}s rather than sorted
-     * sets: they have no {@code comparator()}, and their {@code contains} uses {@code equals} where
-     * Guava's uses the comparator. These differ only for comparators inconsistent with {@code
-     * equals}.
+     * <p><b>Lava:</b> {@code ImmutableSortedSet} is not ported, so the sets returned by {@code
+     * get()} and the {@link Multimap#asMap()} view are ordered {@link ImmutableSet}s rather than
+     * sorted sets: they have no {@code comparator()}, and their {@code contains} uses {@code
+     * equals} where Guava's uses the comparator. These differ only for comparators inconsistent
+     * with {@code equals}.
      *
      * @since 8.0
      */
-    // TODO: Make serialization behavior consistent.
     @Override
     public Builder<K, V> orderValuesBy(Comparator<? super V> valueComparator) {
       super.orderValuesBy(valueComparator);
@@ -371,7 +372,7 @@ public class ImmutableSetMultimap<K, V> extends ImmutableMultimap<K, V>
 
   private static <K, V> ImmutableSetMultimap<K, V> copyOf(
       Multimap<? extends K, ? extends V> multimap, Comparator<? super V> valueComparator) {
-    checkNotNull(multimap); // eager for GWT
+    checkNotNull(multimap); // eager, as in Guava
     if (multimap.isEmpty() && valueComparator == null) {
       return of();
     }

@@ -38,19 +38,6 @@ final class CollectPreconditions {
     return value;
   }
 
-  static long checkNonnegative(long value, String name) {
-    if (value < 0) {
-      throw new IllegalArgumentException(name + " cannot be negative but was: " + value);
-    }
-    return value;
-  }
-
-  static void checkPositive(int value, String name) {
-    if (value <= 0) {
-      throw new IllegalArgumentException(name + " must be positive but was: " + value);
-    }
-  }
-
   /**
    * Precondition tester for {@code Iterator.remove()} that throws an exception with a consistent
    * error message.

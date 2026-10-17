@@ -2,6 +2,7 @@ package com.simplelibs.lava.cache;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.simplelibs.lava.testing.ExceptionMessages;
 import java.util.List;
 import java.util.Random;
 import java.util.function.Supplier;
@@ -58,7 +59,7 @@ class CacheBuilderSpecDifferentialTest {
     try {
       return "= " + call.get();
     } catch (RuntimeException e) {
-      return "! " + e.getClass().getSimpleName() + ": " + e.getMessage();
+      return "! " + e.getClass().getSimpleName() + ": " + ExceptionMessages.of(e);
     }
   }
 

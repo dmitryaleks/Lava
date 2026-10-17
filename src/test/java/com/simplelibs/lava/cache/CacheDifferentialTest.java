@@ -3,6 +3,7 @@ package com.simplelibs.lava.cache;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.DynamicTest.dynamicTest;
 
+import com.simplelibs.lava.testing.ExceptionMessages;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -650,7 +651,7 @@ class CacheDifferentialTest {
   private static String describe(Throwable t) {
     // The asynchronous-reloading wrappers are anonymous classes with identity toStrings.
     String message =
-        String.valueOf(t.getMessage()).replaceAll("[\\w.]*CacheLoader\\$\\d+@[0-9a-f]+", "AsyncLoader");
+        String.valueOf(ExceptionMessages.of(t)).replaceAll("[\\w.]*CacheLoader\\$\\d+@[0-9a-f]+", "AsyncLoader");
     String s = t.getClass().getSimpleName() + "(" + message + ")";
     if (t.getCause() != null && t.getCause() != t) {
       s += " caused by " + describe(t.getCause());

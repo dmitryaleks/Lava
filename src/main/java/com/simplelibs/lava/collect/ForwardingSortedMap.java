@@ -22,9 +22,10 @@ import java.util.Comparator;
 import java.util.SortedMap;
 
 /**
- * A sorted map which forwards all its method calls to another sorted map, as {@code delegate()} returns.
- * Package-private subset of Guava's {@code ForwardingSortedMap} used by Lava's views: it overrides the
- * interface methods only, and Guava's {@code standard*} helper methods are not ported.
+ * A sorted map which forwards all its method calls to another sorted map, as {@code delegate()}
+ * returns. Package-private subset of Guava's {@code ForwardingSortedMap} used by Lava's views: it
+ * overrides the interface methods only, and Guava's {@code standard*} helper methods are not
+ * ported.
  */
 abstract class ForwardingSortedMap<K, V> extends ForwardingMap<K, V>
     implements SortedMap<K, V> {
@@ -76,17 +77,6 @@ abstract class ForwardingSortedMap<K, V> extends ForwardingMap<K, V>
     /** Constructor for use by subclasses. */
     public StandardKeySet() {
       super(ForwardingSortedMap.this);
-    }
-  }
-
-  // unsafe, but worst case is a CCE is thrown, which callers will be expecting
-  @SuppressWarnings("unchecked")
-  private int unsafeCompare(Object k1, Object k2) {
-    Comparator<? super K> comparator = comparator();
-    if (comparator == null) {
-      return ((Comparable<Object>) k1).compareTo(k2);
-    } else {
-      return ((Comparator<Object>) comparator).compare(k1, k2);
     }
   }
 }

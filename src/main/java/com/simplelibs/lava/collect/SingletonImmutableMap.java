@@ -26,21 +26,30 @@ import java.util.function.BiConsumer;
  * Implementation of {@link ImmutableMap} with exactly one entry.
  *
  * <p>Lava's counterpart of Guava's {@code SingletonImmutableBiMap}, which is what Guava returns
- * for every one-entry {@code ImmutableMap}. Lava does not port {@code ImmutableBiMap}, but keeps
- * its observable behavior: as for any {@code BiMap}, {@link #values()} is an {@link ImmutableSet}.
+ * for every one-entry {@code ImmutableMap}. Lava does not port {@code ImmutableBiMap}, but this
+ * class is a {@link BiMap} as Guava's is: {@link #values()} is an {@link ImmutableSet}, {@link
+ * #inverse()} is the swapped singleton, and {@link #forcePut} throws.
  *
  * @author Jesse Wilson
  * @author Kevin Bourrillion
  */
 @SuppressWarnings("serial") // uses writeReplace(), not default serialization
-final class SingletonImmutableMap<K, V> extends ImmutableMap<K, V> {
+final class SingletonImmutableMap<K, V> extends ImmutableMap<K, V> implements BiMap<K, V> {
   final transient K singleKey;
   final transient V singleValue;
+
+  private transient @Nullable SingletonImmutableMap<V, K> inverse;
 
   SingletonImmutableMap(K singleKey, V singleValue) {
     checkEntryNotNull(singleKey, singleValue);
     this.singleKey = singleKey;
     this.singleValue = singleValue;
+  }
+
+  private SingletonImmutableMap(K singleKey, V singleValue, SingletonImmutableMap<V, K> inverse) {
+    this.singleKey = singleKey;
+    this.singleValue = singleValue;
+    this.inverse = inverse;
   }
 
   @Override
@@ -84,8 +93,34 @@ final class SingletonImmutableMap<K, V> extends ImmutableMap<K, V> {
   }
 
   @Override
-  ImmutableCollection<V> createValues() {
+  ImmutableSet<V> createValues() {
     // Like Guava's ImmutableBiMap.values(): the inverse map's key set.
     return ImmutableSet.of(singleValue);
+  }
+
+  @Override
+  public ImmutableSet<V> values() {
+    return (ImmutableSet<V>) super.values();
+  }
+
+  @Override
+  public BiMap<V, K> inverse() {
+    SingletonImmutableMap<V, K> result = inverse;
+    if (result == null) {
+      result = inverse = new SingletonImmutableMap<>(singleValue, singleKey, this);
+    }
+    return result;
+  }
+
+  /**
+   * Guaranteed to throw an exception and leave the map unmodified.
+   *
+   * @throws UnsupportedOperationException always
+   * @deprecated Unsupported operation.
+   */
+  @Deprecated
+  @Override
+  public V forcePut(K key, V value) {
+    throw new UnsupportedOperationException();
   }
 }

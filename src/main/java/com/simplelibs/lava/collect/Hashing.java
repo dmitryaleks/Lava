@@ -31,8 +31,8 @@ final class Hashing {
   private Hashing() {}
 
   /*
-   * These should be ints, but we need to use longs to force GWT to do the multiplications with
-   * enough precision.
+   * Longs, as in Guava (whose GWT build needs them). The products are cast back to int, so the
+   * results are those of int arithmetic.
    */
   private static final long C1 = 0xcc9e2d51;
   private static final long C2 = 0x1b873593;

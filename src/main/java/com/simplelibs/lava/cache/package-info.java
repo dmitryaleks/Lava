@@ -21,8 +21,8 @@
  * <p>The core interface used to represent caches is {@link com.simplelibs.lava.cache.Cache}.
  * In-memory caches can be configured and created using {@link
  * com.simplelibs.lava.cache.CacheBuilder}, with cache entries being loaded by {@link
- * com.simplelibs.lava.cache.CacheLoader}. Statistics about cache performance are exposed using {@link
- * com.simplelibs.lava.cache.CacheStats}.
+ * com.simplelibs.lava.cache.CacheLoader}. Statistics about cache performance are exposed using
+ * {@link com.simplelibs.lava.cache.CacheStats}.
  *
  * <p>See the Guava User Guide article on <a
  * href="https://github.com/google/guava/wiki/CachesExplained">caches</a>; the API is the same.
@@ -49,8 +49,8 @@
  *       IllegalStateException("Recursive load of: ...")}, as in Guava. Lava throws the same
  *       exception where Guava would block forever: an {@code asMap().compute*} of a key whose
  *       load, compute or refresh is running on the call stack, or a {@code get}, from a removal
- *       listener, of a key that is about to load. A read that finds an asynchronous refresh still pending
- *       and no live value loads synchronously instead of waiting.
+ *       listener, of a key that is about to load. A read that finds an asynchronous refresh still
+ *       pending and no live value loads synchronously instead of waiting.
  *   <li>Guava 27.0.1 leaves an entry stuck in a loading state when an {@code asMap().compute*}
  *       function throws, or when {@code compute} removes an existing entry by returning null (a
  *       later {@code get} then throws {@code InvalidCacheLoadException}), or when the weigher

@@ -99,7 +99,8 @@ import java.util.function.BiConsumer;
  *
  * <h2>Subinterfaces</h2>
  *
- * <p>Instead of using the {@code Multimap} interface directly, prefer the subinterfaces {@code ListMultimap} and {@link SetMultimap}. These take their names from the fact that the collections
+ * <p>Instead of using the {@code Multimap} interface directly, prefer the subinterfaces {@code
+ * ListMultimap} and {@link SetMultimap}. These take their names from the fact that the collections
  * they return from {@code get} behave like (and, of course, implement) {@link List} and {@link
  * Set}, respectively.
  *

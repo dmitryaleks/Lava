@@ -224,7 +224,7 @@ public abstract class ImmutableList<E> extends ImmutableCollection<E>
    * @throws NullPointerException if any of {@code elements} is null
    */
   public static <E> ImmutableList<E> copyOf(Iterable<? extends E> elements) {
-    checkNotNull(elements); // TODO(kevinb): is this here only for GWT?
+    checkNotNull(elements);
     return (elements instanceof Collection)
         ? copyOf((Collection<? extends E>) elements)
         : copyOf(elements.iterator());
@@ -660,7 +660,6 @@ public abstract class ImmutableList<E> extends ImmutableCollection<E>
       hashCode = 31 * hashCode + get(i).hashCode();
 
       hashCode = ~~hashCode;
-      // needed to deal with GWT integer overflow
     }
     return hashCode;
   }

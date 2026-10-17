@@ -2,6 +2,7 @@ package com.simplelibs.lava.collect;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.simplelibs.lava.testing.ExceptionMessages;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.Iterator;
@@ -34,12 +35,12 @@ class MapsDifferentialTest {
     try {
       g = String.valueOf(guava.call());
     } catch (Throwable e) {
-      g = e.getClass().getName() + ": " + e.getMessage();
+      g = e.getClass().getName() + ": " + ExceptionMessages.of(e);
     }
     try {
       l = String.valueOf(lava.call());
     } catch (Throwable e) {
-      l = e.getClass().getName() + ": " + e.getMessage();
+      l = e.getClass().getName() + ": " + ExceptionMessages.of(e);
     }
     assertThat(l).as(what).isEqualTo(g);
   }

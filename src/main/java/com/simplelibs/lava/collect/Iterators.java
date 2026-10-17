@@ -76,17 +76,6 @@ final class Iterators {
     };
   }
 
-  /**
-   * Simply returns its argument.
-   *
-   * @deprecated no need to use this
-   * @since 10.0
-   */
-  @Deprecated
-  public static <T> UnmodifiableIterator<T> unmodifiableIterator(UnmodifiableIterator<T> iterator) {
-    return checkNotNull(iterator);
-  }
-
   /** Returns {@code true} if {@code iterator} contains {@code element}. */
   public static boolean contains(Iterator<?> iterator, @Nullable Object element) {
     if (element == null) {
@@ -144,27 +133,6 @@ final class Iterators {
       }
     }
     return modified;
-  }
-
-  /**
-   * Traverses an iterator and removes every element that does not belong to the provided
-   * collection. The iterator will be left exhausted: its {@code hasNext()} method will return
-   * {@code false}.
-   *
-   * @param removeFrom the iterator to (potentially) remove elements from
-   * @param elementsToRetain the elements to retain
-   * @return {@code true} if any element was removed from {@code iterator}
-   */
-  public static boolean retainAll(Iterator<?> removeFrom, Collection<?> elementsToRetain) {
-    checkNotNull(elementsToRetain);
-    boolean result = false;
-    while (removeFrom.hasNext()) {
-      if (!elementsToRetain.contains(removeFrom.next())) {
-        removeFrom.remove();
-        result = true;
-      }
-    }
-    return result;
   }
 
   /**
@@ -233,18 +201,6 @@ final class Iterators {
   }
 
   /**
-   * Returns the single element contained in {@code iterator}, or {@code defaultValue} if the
-   * iterator is empty.
-   *
-   * @throws IllegalArgumentException if the iterator contains multiple elements. The state of the
-   *     iterator is unspecified.
-   */
-  public static <T> @Nullable T getOnlyElement(
-      Iterator<? extends T> iterator, @Nullable T defaultValue) {
-    return iterator.hasNext() ? getOnlyElement(iterator) : defaultValue;
-  }
-
-  /**
    * Adds all elements in {@code iterator} to {@code collection}. The iterator will be left
    * exhausted: its {@code hasNext()} method will return {@code false}.
    *
@@ -283,15 +239,6 @@ final class Iterators {
   }
 
   /**
-   * Returns a view of {@code unfiltered} containing all elements that are of the type {@code
-   * desiredType}.
-   */
-  @SuppressWarnings("unchecked") // can cast to <T> because non-Ts are removed
-  public static <T> UnmodifiableIterator<T> filter(Iterator<?> unfiltered, Class<T> desiredType) {
-    return (UnmodifiableIterator<T>) filter(unfiltered, CollectPredicates.instanceOf(desiredType));
-  }
-
-  /**
    * Returns {@code true} if one or more elements returned by {@code iterator} satisfy the given
    * predicate.
    */
@@ -303,7 +250,7 @@ final class Iterators {
    * Returns the first element in {@code iterator} that satisfies the given predicate; use this
    * method only when such an element is known to exist. If no such element is found, the iterator
    * will be left exhausted: its {@code hasNext()} method will return {@code false}. If it is
-   * possible that <i>no</i> element will match, use {@link #tryFind} or {@link #find(Iterator,
+   * possible that <i>no</i> element will match, use {@code #tryFind} or {@link #find(Iterator,
    * Predicate, Object)} instead.
    *
    * @throws NoSuchElementException if no element in {@code iterator} matches the given predicate
@@ -387,7 +334,7 @@ final class Iterators {
 
   /**
    * Returns the next element in {@code iterator} or {@code defaultValue} if the iterator is empty.
-   * The {@link Iterables} analog to this method is {@link Iterables#getFirst}.
+   * The {@link Iterables} analog to this method is {@code Iterables#getFirst}.
    *
    * @param defaultValue the default value to return if the iterator is empty
    * @return the next element of {@code iterator} or the default value
@@ -427,9 +374,9 @@ final class Iterators {
    * a view of the array; subsequent changes to the array will be reflected in the iterator.
    *
    * <p><b>Note:</b> It is often preferable to represent your data using a collection type, for
-   * example using {@link Arrays#asList(Object[])}, making this method unnecessary.
+   * example using {@code Arrays#asList(Object[])}, making this method unnecessary.
    *
-   * <p>The {@code Iterable} equivalent of this method is either {@link Arrays#asList(Object[])},
+   * <p>The {@code Iterable} equivalent of this method is either {@code Arrays#asList(Object[])},
    * {@link ImmutableList#copyOf(Object[])}}, or {@link ImmutableList#of}.
    */
   @SafeVarargs
@@ -479,7 +426,7 @@ final class Iterators {
   /**
    * Returns an iterator containing only {@code value}.
    *
-   * <p>The {@link Iterable} equivalent of this method is {@link Collections#singleton}.
+   * <p>The {@link Iterable} equivalent of this method is {@code Collections#singleton}.
    */
   public static <T> UnmodifiableIterator<T> singletonIterator(final @Nullable T value) {
     return new UnmodifiableIterator<T>() {

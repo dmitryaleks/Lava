@@ -3,6 +3,7 @@ package com.simplelibs.lava.collect;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.DynamicTest.dynamicTest;
 
+import com.simplelibs.lava.testing.ExceptionMessages;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -377,7 +378,7 @@ class MapsViewFuzzTest {
     try {
       return show(c.call());
     } catch (Throwable t) {
-      return "EX " + t.getClass().getSimpleName() + ": " + show(t.getMessage());
+      return "EX " + t.getClass().getSimpleName() + ": " + show(ExceptionMessages.of(t));
     }
   }
 

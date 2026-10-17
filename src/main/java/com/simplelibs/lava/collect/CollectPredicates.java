@@ -23,7 +23,8 @@ import java.util.function.Predicate;
 
 /**
  * The few combinators from Guava's {@code Predicates} that Lava's collection views use internally,
- * expressed over {@link java.util.function.Predicate}. Lava does not port {@code Predicates} as API.
+ * expressed over {@link java.util.function.Predicate}. Lava does not port {@code Predicates} as
+ * API.
  */
 final class CollectPredicates {
   private CollectPredicates() {}
@@ -43,9 +44,4 @@ final class CollectPredicates {
     return a -> predicate.test(function.apply(a));
   }
 
-  /** Returns a predicate that is true for instances of {@code clazz} (never for null). */
-  static Predicate<Object> instanceOf(Class<?> clazz) {
-    checkNotNull(clazz);
-    return clazz::isInstance;
-  }
 }

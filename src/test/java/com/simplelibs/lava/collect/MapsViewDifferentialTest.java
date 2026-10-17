@@ -3,6 +3,7 @@ package com.simplelibs.lava.collect;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.DynamicTest.dynamicTest;
 
+import com.simplelibs.lava.testing.ExceptionMessages;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -432,12 +433,12 @@ class MapsViewDifferentialTest {
     try {
       g = String.valueOf(guava.call());
     } catch (Exception e) {
-      g = e.getClass().getName() + ": " + e.getMessage();
+      g = e.getClass().getName() + ": " + ExceptionMessages.of(e);
     }
     try {
       l = String.valueOf(lava.call());
     } catch (Exception e) {
-      l = e.getClass().getName() + ": " + e.getMessage();
+      l = e.getClass().getName() + ": " + ExceptionMessages.of(e);
     }
     assertThat(l).as(what).isEqualTo(g);
   }

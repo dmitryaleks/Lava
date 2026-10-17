@@ -23,6 +23,7 @@ import com.simplelibs.lava.testing.LavaTestCase;
 import java.lang.ref.WeakReference;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -177,6 +178,7 @@ public class AbstractIteratorTest extends LavaTestCase {
   }
 
   @Test
+  @Tag("gc")
   public void testFreesNextReference() {
     Iterator<Object> itr =
         new AbstractIterator<Object>() {

@@ -51,7 +51,7 @@ final class Sets {
 
     @Override
     public boolean retainAll(Collection<?> c) {
-      return super.retainAll(checkNotNull(c)); // GWT compatibility
+      return super.retainAll(checkNotNull(c));
     }
   }
 
@@ -61,7 +61,7 @@ final class Sets {
    * Creates a <i>mutable</i>, initially empty {@code HashSet} instance.
    *
    * <p><b>Note:</b> if mutability is not required, use {@link ImmutableSet#of()} instead. If {@code
-   * E} is an {@link Enum} type, use {@link EnumSet#noneOf} instead. Otherwise, strongly consider
+   * E} is an {@link Enum} type, use {@code EnumSet#noneOf} instead. Otherwise, strongly consider
    * using a {@code LinkedHashSet} instead, at the cost of increased memory footprint, to get
    * deterministic iteration behavior.
    *
@@ -71,67 +71,6 @@ final class Sets {
    */
   public static <E> HashSet<E> newHashSet() {
     return new HashSet<E>();
-  }
-
-  /**
-   * Creates a <i>mutable</i> {@code HashSet} instance initially containing the given elements.
-   *
-   * <p><b>Note:</b> if elements are non-null and won't be added or removed after this point, use
-   * {@link ImmutableSet#of()} or {@link ImmutableSet#copyOf(Object[])} instead. If {@code E} is an
-   * {@link Enum} type, use {@link EnumSet#of(Enum, Enum[])} instead. Otherwise, strongly consider
-   * using a {@code LinkedHashSet} instead, at the cost of increased memory footprint, to get
-   * deterministic iteration behavior.
-   *
-   * <p>This method is just a small convenience, either for {@code newHashSet(}{@link Arrays#asList
-   * asList}{@code (...))}, or for creating an empty set then calling {@link Collections#addAll}.
-   * This method is not actually very useful and will likely be deprecated in the future.
-   */
-  public static <E> HashSet<E> newHashSet(E... elements) {
-    HashSet<E> set = newHashSetWithExpectedSize(elements.length);
-    Collections.addAll(set, elements);
-    return set;
-  }
-
-  /**
-   * Creates a <i>mutable</i> {@code HashSet} instance containing the given elements. A very thin
-   * convenience for creating an empty set then calling {@link Collection#addAll} or {@link
-   * Iterables#addAll}.
-   *
-   * <p><b>Note:</b> if mutability is not required and the elements are non-null, use {@link
-   * ImmutableSet#copyOf(Iterable)} instead. (Or, change {@code elements} to be a {@link
-   * FluentIterable} and call {@code elements.toSet()}.)
-   *
-   * <p><b>Note:</b> if {@code E} is an {@link Enum} type, use {@link #newEnumSet(Iterable, Class)}
-   * instead.
-   *
-   * <p><b>Note for Java 7 and later:</b> if {@code elements} is a {@link Collection}, you don't
-   * need this method. Instead, use the {@code HashSet} constructor directly, taking advantage of
-   * the new <a href="http://goo.gl/iz2Wi">"diamond" syntax</a>.
-   *
-   * <p>Overall, this method is not very useful and will likely be deprecated in the future.
-   */
-  public static <E> HashSet<E> newHashSet(Iterable<? extends E> elements) {
-    return (elements instanceof Collection)
-        ? new HashSet<E>(Collections2.cast(elements))
-        : newHashSet(elements.iterator());
-  }
-
-  /**
-   * Creates a <i>mutable</i> {@code HashSet} instance containing the given elements. A very thin
-   * convenience for creating an empty set and then calling {@link Iterators#addAll}.
-   *
-   * <p><b>Note:</b> if mutability is not required and the elements are non-null, use {@link
-   * ImmutableSet#copyOf(Iterator)} instead.
-   *
-   * <p><b>Note:</b> if {@code E} is an {@link Enum} type, you should create an {@link EnumSet}
-   * instead.
-   *
-   * <p>Overall, this method is not very useful and will likely be deprecated in the future.
-   */
-  public static <E> HashSet<E> newHashSet(Iterator<? extends E> elements) {
-    HashSet<E> set = newHashSet();
-    Iterators.addAll(set, elements);
-    return set;
   }
 
   /**
@@ -148,22 +87,6 @@ final class Sets {
    */
   public static <E> HashSet<E> newHashSetWithExpectedSize(int expectedSize) {
     return new HashSet<E>(Maps.capacity(expectedSize));
-  }
-
-  /**
-   * Creates a {@code LinkedHashSet} instance, with a high enough "initial capacity" that it
-   * <i>should</i> hold {@code expectedSize} elements without growth. This behavior cannot be
-   * broadly guaranteed, but it is observed to be true for OpenJDK 1.7. It also can't be guaranteed
-   * that the method isn't inadvertently <i>oversizing</i> the returned set.
-   *
-   * @param expectedSize the number of elements you expect to add to the returned set
-   * @return a new, empty {@code LinkedHashSet} with enough capacity to hold {@code expectedSize}
-   *     elements without resizing
-   * @throws IllegalArgumentException if {@code expectedSize} is negative
-   * @since 11.0
-   */
-  public static <E> LinkedHashSet<E> newLinkedHashSetWithExpectedSize(int expectedSize) {
-    return new LinkedHashSet<E>(Maps.capacity(expectedSize));
   }
 
   /**
@@ -184,15 +107,14 @@ final class Sets {
    * use the copy.
    *
    * <p><b>Warning:</b> {@code predicate} must be <i>consistent with equals</i>, as documented at
-   * {@link Predicate#apply}. Do not provide a predicate such as {@code
-   * CollectPredicates.instanceOf(ArrayList.class)}, which is inconsistent with equals. (See {@link
+   * {@code Predicate#apply}. Do not provide a predicate such as {@code
+   * CollectPredicates.instanceOf(ArrayList.class)}, which is inconsistent with equals. (See {@code
    * Iterables#filter(Iterable, Class)} for related functionality.)
    *
    * <p><b>Java 8 users:</b> many use cases for this method are better addressed by {@link
    * java.util.stream.Stream#filter}. This method is not being deprecated, but we gently encourage
    * you to migrate to streams.
    */
-  // TODO(kevinb): how to omit that last sentence when building GWT javadoc?
   public static <E> Set<E> filter(Set<E> unfiltered, Predicate<? super E> predicate) {
     if (unfiltered instanceof SortedSet) {
       return filter((SortedSet<E>) unfiltered, predicate);
@@ -226,8 +148,8 @@ final class Sets {
    * use the copy.
    *
    * <p><b>Warning:</b> {@code predicate} must be <i>consistent with equals</i>, as documented at
-   * {@link Predicate#apply}. Do not provide a predicate such as {@code
-   * CollectPredicates.instanceOf(ArrayList.class)}, which is inconsistent with equals. (See {@link
+   * {@code Predicate#apply}. Do not provide a predicate such as {@code
+   * CollectPredicates.instanceOf(ArrayList.class)}, which is inconsistent with equals. (See {@code
    * Iterables#filter(Iterable, Class)} for related functionality.)
    *
    * @since 11.0
@@ -262,8 +184,8 @@ final class Sets {
    * use the copy.
    *
    * <p><b>Warning:</b> {@code predicate} must be <i>consistent with equals</i>, as documented at
-   * {@link Predicate#apply}. Do not provide a predicate such as {@code
-   * CollectPredicates.instanceOf(ArrayList.class)}, which is inconsistent with equals. (See {@link
+   * {@code Predicate#apply}. Do not provide a predicate such as {@code
+   * CollectPredicates.instanceOf(ArrayList.class)}, which is inconsistent with equals. (See {@code
    * Iterables#filter(Iterable, Class)} for related functionality.)
    *
    * @since 14.0
@@ -423,7 +345,6 @@ final class Sets {
       hashCode += o != null ? o.hashCode() : 0;
 
       hashCode = ~~hashCode;
-      // Needed to deal with unusual integer overflow in GWT.
     }
     return hashCode;
   }
@@ -579,7 +500,7 @@ final class Sets {
   }
 
   static boolean removeAllImpl(Set<?> set, Collection<?> collection) {
-    checkNotNull(collection); // for GWT
+    checkNotNull(collection);
     /*
      * AbstractSet.removeAll(List) has quadratic behavior if the list size
      * is just more than the set's size.  We augment the test by

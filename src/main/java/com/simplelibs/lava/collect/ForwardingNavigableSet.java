@@ -22,9 +22,10 @@ import java.util.Iterator;
 import java.util.NavigableSet;
 
 /**
- * A navigable set which forwards all its method calls to another navigable set, as {@code delegate()} returns.
- * Package-private subset of Guava's {@code ForwardingNavigableSet} used by Lava's views: it overrides the
- * interface methods only, and Guava's {@code standard*} helper methods are not ported.
+ * A navigable set which forwards all its method calls to another navigable set, as {@code
+ * delegate()} returns. Package-private subset of Guava's {@code ForwardingNavigableSet} used by
+ * Lava's views: it overrides the interface methods only, and Guava's {@code standard*} helper
+ * methods are not ported.
  */
 abstract class ForwardingNavigableSet<E> extends ForwardingSortedSet<E>
     implements NavigableSet<E> {

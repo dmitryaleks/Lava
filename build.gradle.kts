@@ -18,6 +18,17 @@ java {
     withJavadocJar()
 }
 
+// Every jar carries the license and attribution of the Apache-2.0 code it is derived from.
+tasks.withType<Jar>().configureEach {
+    from(rootDir) {
+        include("LICENSE", "NOTICE")
+        into("META-INF")
+    }
+    manifest {
+        attributes("Automatic-Module-Name" to "com.simplelibs.lava")
+    }
+}
+
 dependencies {
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
@@ -64,6 +75,9 @@ tasks.test {
     // exceptions thrown from hot compiled code with preallocated ones that have no message.
     jvmArgs("-XX:-OmitStackTraceInFastThrow")
     maxHeapSize = "1g"
+    // The fuzz tests read these, so a change must re-run them instead of reusing an up-to-date result.
+    inputs.property("fuzzSeeds", providers.environmentVariable("LAVA_CACHE_FUZZ_SEEDS").orElse(""))
+    inputs.property("fuzzTrace", providers.environmentVariable("LAVA_CACHE_FUZZ_TRACE").orElse(""))
     testLogging {
         events("failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL

@@ -141,9 +141,9 @@ public abstract class Equivalence<T> implements BiPredicate<T, T> {
    *
    * <p>Note that {@code function} must be consistent according to {@code this} equivalence
    * relation. That is, invoking {@link Function#apply} multiple times for a given value must return
-   * equivalent results. For example, {@code
-   * Equivalence.identity().onResultOf(Functions.toStringFunction())} is broken because it's not
-   * guaranteed that {@link Object#toString}) always returns the same string instance.
+   * equivalent results. For example, {@code Equivalence.identity().onResultOf(Object::toString)}
+   * is broken because it's not guaranteed that {@link Object#toString}) always returns the same
+   * string instance.
    *
    * @since 10.0
    */
@@ -246,7 +246,8 @@ public abstract class Equivalence<T> implements BiPredicate<T, T> {
    * elements, and each pair of corresponding elements is equivalent according to {@code this}. Null
    * iterables are equivalent to one another.
    *
-   * <p>Note that this method performs a similar function for equivalences as {@code Ordering.lexicographical} does for orderings.
+   * <p>Note that this method performs a similar function for equivalences as Guava's {@code
+   * Ordering.lexicographical} (not ported) does for orderings.
    *
    * @since 10.0
    */

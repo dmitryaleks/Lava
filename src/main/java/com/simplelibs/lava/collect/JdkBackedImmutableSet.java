@@ -21,8 +21,7 @@ import java.util.Set;
 
 /**
  * ImmutableSet implementation backed by a JDK HashSet, used to defend against apparent hash
- * flooding. This implementation is never used on the GWT client side, but it must be present there
- * for serialization to work.
+ * flooding.
  *
  * @author Louis Wasserman
  */

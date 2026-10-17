@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.entry;
 
+import com.simplelibs.lava.testing.ExceptionMessages;
 import com.simplelibs.lava.testing.FakeTicker;
 import java.lang.ref.Reference;
 import java.util.AbstractMap.SimpleImmutableEntry;
@@ -83,7 +84,7 @@ class CacheReviewTest {
     try {
       return "= " + call.call();
     } catch (Exception | Error e) {
-      return "! " + e.getClass().getSimpleName() + ": " + e.getMessage();
+      return "! " + e.getClass().getSimpleName() + ": " + ExceptionMessages.of(e);
     }
   }
 
@@ -370,6 +371,8 @@ class CacheReviewTest {
 
   // F4: load time
 
+  private static final long LISTENER_MILLIS = 300;
+
   @Test
   void listenerTimeIsNotCountedAsLoadTime() {
     FakeTicker ticker = new FakeTicker();
@@ -381,7 +384,7 @@ class CacheReviewTest {
             .removalListener(
                 n -> {
                   try {
-                    Thread.sleep(100);
+                    Thread.sleep(LISTENER_MILLIS);
                   } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                   }
@@ -393,7 +396,8 @@ class CacheReviewTest {
     ticker.advance(1);
     cache.asMap().compute("c", (k, v) -> k); // b expires, and its listener runs before the function
     assertThat(cache.stats().loadCount()).isEqualTo(2);
-    assertThat(cache.stats().totalLoadTime()).isLessThan(MILLISECONDS.toNanos(100));
+    // Counting the listeners would make it at least 2 * LISTENER_MILLIS; the loads take microseconds.
+    assertThat(cache.stats().totalLoadTime()).isLessThan(MILLISECONDS.toNanos(LISTENER_MILLIS));
   }
 
   // F5: the weigher fails for a loaded value

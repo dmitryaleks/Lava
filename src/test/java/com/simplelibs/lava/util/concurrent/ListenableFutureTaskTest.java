@@ -36,6 +36,11 @@ import org.junit.jupiter.api.Test;
  */
 public class ListenableFutureTaskTest extends LavaTestCase {
 
+  /**
+   * Lava: the only way to observe a task that is still running is to run it on another thread. The
+   * task is handed over after its listener is added, so it is used by one thread at a time; the
+   * test thread only reads {@code FutureTask}'s own thread-safe state.
+   */
   private ExecutorService exec;
 
   protected final CountDownLatch runLatch = new CountDownLatch(1);

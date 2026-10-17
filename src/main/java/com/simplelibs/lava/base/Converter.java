@@ -62,7 +62,8 @@ import java.util.function.Function;
  *   <li>Use a provided converter implementation, such as {@link Enums#stringConverter}, {@link
  *       com.simplelibs.lava.primitives.Doubles#stringConverter Doubles.stringConverter} or the
  *       {@linkplain #reverse reverse} views of these.
- *   <li>Convert between specific preset values using {@link com.simplelibs.lava.collect.Maps#asConverter Maps.asConverter}. For example, use this to
+ *   <li>Convert between specific preset values using {@link
+ *       com.simplelibs.lava.collect.Maps#asConverter Maps.asConverter}. For example, use this to
  *       create a "fake" converter for a unit test. It is unnecessary (and confusing) to <i>mock</i>
  *       the {@code Converter} type using a mocking framework.
  *   <li>Extend this class and implement its {@link #doForward} and {@link #doBackward} methods.
@@ -165,7 +166,6 @@ public abstract class Converter<A, B> implements Function<A, B> {
   @Nullable
   B correctedDoForward(@Nullable A a) {
     if (handleNullAutomatically) {
-      // TODO(kevinb): we shouldn't be checking for a null result at runtime. Assert?
       return a == null ? null : checkNotNull(doForward(a));
     } else {
       return doForward(a);
@@ -175,7 +175,6 @@ public abstract class Converter<A, B> implements Function<A, B> {
   @Nullable
   A correctedDoBackward(@Nullable B b) {
     if (handleNullAutomatically) {
-      // TODO(kevinb): we shouldn't be checking for a null result at runtime. Assert?
       return b == null ? null : checkNotNull(doBackward(b));
     } else {
       return doBackward(b);
@@ -386,9 +385,9 @@ public abstract class Converter<A, B> implements Function<A, B> {
    * <p>Most implementations will have no reason to override the behavior of {@link Object#equals}.
    * However, an implementation may also choose to return {@code true} whenever {@code object} is a
    * {@link Converter} that it considers <i>interchangeable</i> with this one. "Interchangeable"
-   * <i>typically</i> means that {@code Objects.equals(this.convert(a), that.convert(a))} is true for
-   * all {@code a} of type {@code A} (and similarly for {@code reverse}). Note that a {@code false}
-   * result from this method does not imply that the converters are known <i>not</i> to be
+   * <i>typically</i> means that {@code Objects.equals(this.convert(a), that.convert(a))} is true
+   * for all {@code a} of type {@code A} (and similarly for {@code reverse}). Note that a {@code
+   * false} result from this method does not imply that the converters are known <i>not</i> to be
    * interchangeable.
    */
   @Override

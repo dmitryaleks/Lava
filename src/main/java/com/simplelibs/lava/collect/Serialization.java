@@ -62,16 +62,6 @@ final class Serialization {
 
   /**
    * Populates a map by reading an input stream, as part of deserialization. See {@link #writeMap}
-   * for the data format.
-   */
-  static <K, V> void populateMap(Map<K, V> map, ObjectInputStream stream)
-      throws IOException, ClassNotFoundException {
-    int size = stream.readInt();
-    populateMap(map, stream, size);
-  }
-
-  /**
-   * Populates a map by reading an input stream, as part of deserialization. See {@link #writeMap}
    * for the data format. The size is determined by a prior call to {@link #readCount}.
    */
   static <K, V> void populateMap(Map<K, V> map, ObjectInputStream stream, int size)

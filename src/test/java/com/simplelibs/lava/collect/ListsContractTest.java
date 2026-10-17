@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.DynamicTest.dynamicTest;
 
+import com.simplelibs.lava.testing.ExceptionMessages;
 import com.simplelibs.lava.testing.ListContract;
 import com.simplelibs.lava.testing.SerializableTester;
 import java.io.Serializable;
@@ -332,7 +333,7 @@ class ListsContractTest {
       List<List<Integer>> result = call.get();
       return result.size() < 10 ? result.toString() : "size " + result.size();
     } catch (RuntimeException e) {
-      return e.getClass().getName() + ": " + e.getMessage();
+      return e.getClass().getName() + ": " + ExceptionMessages.of(e);
     }
   }
 

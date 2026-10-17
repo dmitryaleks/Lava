@@ -22,9 +22,9 @@ import static com.simplelibs.lava.util.concurrent.MoreExecutors.directExecutor;
 
 import com.simplelibs.lava.testing.LavaTestCase;
 import com.simplelibs.lava.testing.NullPointerTester;
+import java.util.ArrayDeque;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -39,9 +39,23 @@ public class ExecutionListTest extends LavaTestCase {
 
   private final ExecutionList list = new ExecutionList();
 
+  /**
+   * Lava: listeners run on an executor that the test drains on its own thread (Guava's test uses a
+   * thread pool, which Lava's single-threaded contract rules out).
+   */
+  private final ArrayDeque<Runnable> queued = new ArrayDeque<>();
+
+  private final Executor exec = queued::add;
+
+  private void drain() {
+    Runnable task;
+    while ((task = queued.poll()) != null) {
+      task.run();
+    }
+  }
+
   @Test
   public void testRunOnPopulatedList() throws Exception {
-    Executor exec = Executors.newCachedThreadPool();
     CountDownLatch countDownLatch = new CountDownLatch(3);
     list.add(new MockRunnable(countDownLatch), exec);
     list.add(new MockRunnable(countDownLatch), exec);
@@ -49,6 +63,8 @@ public class ExecutionListTest extends LavaTestCase {
     assertEquals(3L, countDownLatch.getCount());
 
     list.execute();
+    assertEquals(3L, countDownLatch.getCount()); // queued on the executor, not run inline
+    drain();
 
     // Verify that all of the runnables execute in a reasonable amount of time.
     assertTrue(countDownLatch.await(1L, TimeUnit.SECONDS));
@@ -78,7 +94,8 @@ public class ExecutionListTest extends LavaTestCase {
 
     // If it passed, then verify an Add will be executed without calling run
     CountDownLatch countDownLatch = new CountDownLatch(1);
-    list.add(new MockRunnable(countDownLatch), Executors.newCachedThreadPool());
+    list.add(new MockRunnable(countDownLatch), exec);
+    drain();
     assertTrue(countDownLatch.await(1L, TimeUnit.SECONDS));
   }
 

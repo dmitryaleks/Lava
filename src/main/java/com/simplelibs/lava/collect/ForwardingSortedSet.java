@@ -23,9 +23,10 @@ import java.util.Comparator;
 import java.util.SortedSet;
 
 /**
- * A sorted set which forwards all its method calls to another sorted set, as {@code delegate()} returns.
- * Package-private subset of Guava's {@code ForwardingSortedSet} used by Lava's views: it overrides the
- * interface methods only, and Guava's {@code standard*} helper methods are not ported.
+ * A sorted set which forwards all its method calls to another sorted set, as {@code delegate()}
+ * returns. Package-private subset of Guava's {@code ForwardingSortedSet} used by Lava's views: it
+ * overrides the interface methods only, and Guava's {@code standard*} helper methods are not
+ * ported.
  */
 abstract class ForwardingSortedSet<E> extends ForwardingSet<E> implements SortedSet<E> {
 
@@ -63,14 +64,5 @@ abstract class ForwardingSortedSet<E> extends ForwardingSet<E> implements Sorted
   @Override
   public SortedSet<E> tailSet(E fromElement) {
     return delegate().tailSet(fromElement);
-  }
-
-  // unsafe, but worst case is a CCE is thrown, which callers will be expecting
-  @SuppressWarnings("unchecked")
-  private int unsafeCompare(@Nullable Object o1, @Nullable Object o2) {
-    Comparator<? super E> comparator = comparator();
-    return (comparator == null)
-        ? ((Comparable<Object>) o1).compareTo(o2)
-        : ((Comparator<Object>) comparator).compare(o1, o2);
   }
 }

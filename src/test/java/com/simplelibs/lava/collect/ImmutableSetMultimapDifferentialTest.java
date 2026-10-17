@@ -2,6 +2,7 @@ package com.simplelibs.lava.collect;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.simplelibs.lava.testing.ExceptionMessages;
 import com.simplelibs.lava.testing.NullPointerTester;
 import com.simplelibs.lava.testing.SerializableTester;
 import java.io.Serializable;
@@ -127,7 +128,7 @@ class ImmutableSetMultimapDifferentialTest {
     try {
       return String.valueOf(call.get());
     } catch (RuntimeException e) {
-      return e.getClass().getName() + ": " + e.getMessage();
+      return e.getClass().getName() + ": " + ExceptionMessages.of(e);
     }
   }
 

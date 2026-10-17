@@ -173,8 +173,8 @@ public abstract class CacheLoader<K, V> {
    * <p>This method is useful only when {@code loader.reload} has a synchronous implementation, such
    * as {@linkplain #reload the default implementation}.
    *
-   * <p><b>Lava:</b> the executor must run its tasks on the cache's own thread (for example, a direct
-   * executor, or a queue the thread drains); thread pools such as {@code
+   * <p><b>Lava:</b> the executor must run its tasks on the cache's own thread (for example, a
+   * direct executor, or a queue the thread drains); thread pools such as {@code
    * Executors.newSingleThreadExecutor()} are not supported, because Lava caches are not
    * thread-safe.
    *

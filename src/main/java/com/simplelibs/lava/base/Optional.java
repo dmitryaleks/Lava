@@ -193,8 +193,7 @@ public abstract class Optional<T> implements Serializable {
    * Optional<Integer> optionalInt = getSomeOptionalInt();
    * Number value = optionalInt.or(0.5); // error
    *
-   * FluentIterable<? extends Number> numbers = getSomeNumbers();
-   * Optional<? extends Number> first = numbers.first();
+   * Optional<? extends Number> first = getSomeNumber();
    * Number value = first.or(0.5); // error
    * }</pre>
    *
@@ -206,8 +205,7 @@ public abstract class Optional<T> implements Serializable {
    * Optional<Number> optionalInt = (Optional) getSomeOptionalInt();
    * Number value = optionalInt.or(0.5); // fine
    *
-   * FluentIterable<? extends Number> numbers = getSomeNumbers();
-   * Optional<Number> first = (Optional) numbers.first();
+   * Optional<Number> first = (Optional) getSomeNumber();
    * Number value = first.or(0.5); // fine
    * }</pre>
    *

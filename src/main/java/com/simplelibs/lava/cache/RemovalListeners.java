@@ -34,8 +34,8 @@ public final class RemovalListeners {
    * Returns a {@code RemovalListener} which processes all eviction notifications using {@code
    * executor}.
    *
-   * <p><b>Lava:</b> the executor must run its tasks on the cache's own thread (for example, a direct
-   * executor, or a queue the thread drains); thread pools are not supported.
+   * <p><b>Lava:</b> the executor must run its tasks on the cache's own thread (for example, a
+   * direct executor, or a queue the thread drains); thread pools are not supported.
    *
    * @param listener the backing listener
    * @param executor the executor with which removal notifications are asynchronously executed

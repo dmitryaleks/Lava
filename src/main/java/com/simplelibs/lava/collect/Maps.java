@@ -526,9 +526,9 @@ public final class Maps {
 
   /**
    * Computes the difference between two sorted maps, using the comparator of the left map, or
-   * {@code Comparator.naturalOrder()} if the left map uses the natural ordering of its elements. This
-   * difference is an immutable snapshot of the state of the maps at the time this method is called.
-   * It will never change, even if the maps change at a later time.
+   * natural ordering (Guava's {@code Ordering.natural()}) if the left map uses the natural ordering
+   * of its elements. This difference is an immutable snapshot of the state of the maps at the time
+   * this method is called. It will never change, even if the maps change at a later time.
    *
    * <p>Since this method uses {@code TreeMap} instances internally, the keys of the right map must
    * all compare as distinct according to the comparator of the left map.
@@ -746,16 +746,38 @@ public final class Maps {
   }
 
   /**
-   * Returns the specified comparator if not null; otherwise returns {@code Comparator.naturalOrder()}.
-   * This method is an abomination of generics; the only purpose of this method is to contain the
-   * ugly type-casting in one place.
+   * Returns the specified comparator if not null; otherwise returns {@link NaturalOrdering}. This
+   * method is an abomination of generics; the only purpose of this method is to contain the ugly
+   * type-casting in one place.
    */
   @SuppressWarnings("unchecked")
   static <E> Comparator<? super E> orNaturalOrder(@Nullable Comparator<? super E> comparator) {
     if (comparator != null) { // can't use ? : because of javac bug 5080917
       return comparator;
     }
-    return (Comparator<E>) Comparator.naturalOrder();
+    return (Comparator<E>) NaturalOrdering.INSTANCE;
+  }
+
+  /**
+   * Lava's stand-in for Guava's {@code Ordering.natural()}, which Guava's {@code Maps} uses for
+   * sorted maps without a comparator. Unlike {@code Comparator.naturalOrder()}, it rejects null
+   * with a {@code NullPointerException} that has no message, and its {@code toString} is Guava's.
+   */
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  enum NaturalOrdering implements Comparator<Comparable> {
+    INSTANCE;
+
+    @Override
+    public int compare(Comparable left, Comparable right) {
+      checkNotNull(left);
+      checkNotNull(right);
+      return left.compareTo(right);
+    }
+
+    @Override
+    public String toString() {
+      return "Ordering.natural()";
+    }
   }
 
   /**
@@ -1265,7 +1287,6 @@ public final class Maps {
    */
   public static <K, V> ImmutableMap<K, V> uniqueIndex(
       Iterable<V> values, Function<? super V, K> keyFunction) {
-    // TODO(lowasser): consider presizing the builder if values is a Collection
     return uniqueIndex(values.iterator(), keyFunction);
   }
 
@@ -1819,8 +1840,9 @@ public final class Maps {
      *
      * <ul>
      *   <li>Its execution does not cause any observable side effects.
-     *   <li>The computation is <i>consistent with equals</i>; that is, {@code Objects.equal}{@code (k1, k2) &&} {@code Objects.equal}{@code (v1, v2)} implies that
-     *       {@code Objects.equals(transformer.transform(k1, v1), transformer.transform(k2, v2))}.
+     *   <li>The computation is <i>consistent with equals</i>; that is, {@code Objects.equals(k1,
+     *       k2) && Objects.equals(v1, v2)} implies that {@code
+     *       Objects.equals(transformer.transform(k1, v1), transformer.transform(k2, v2))}.
      * </ul>
      *
      * @throws NullPointerException if the key or value is null and this transformer does not accept
@@ -2186,8 +2208,6 @@ public final class Maps {
    */
   public static <K, V> SortedMap<K, V> filterKeys(
       SortedMap<K, V> unfiltered, final Predicate<? super K> keyPredicate) {
-    // TODO(lowasser): Return a subclass of Maps.FilteredKeyMap for slightly better
-    // performance.
     return filterEntries(unfiltered, Maps.<K>keyPredicateOnEntries(keyPredicate));
   }
 
@@ -2219,8 +2239,6 @@ public final class Maps {
    */
   public static <K, V> NavigableMap<K, V> filterKeys(
       NavigableMap<K, V> unfiltered, final Predicate<? super K> keyPredicate) {
-    // TODO(lowasser): Return a subclass of Maps.FilteredKeyMap for slightly better
-    // performance.
     return filterEntries(unfiltered, Maps.<K>keyPredicateOnEntries(keyPredicate));
   }
 
@@ -2528,7 +2546,8 @@ public final class Maps {
    */
   private static <K, V> SortedMap<K, V> filterFiltered(
       FilteredEntrySortedMap<K, V> map, Predicate<? super Entry<K, V>> entryPredicate) {
-    Predicate<Entry<K, V>> predicate = CollectPredicates.<Entry<K, V>>and(map.predicate, entryPredicate);
+    Predicate<Entry<K, V>> predicate =
+        CollectPredicates.<Entry<K, V>>and(map.predicate, entryPredicate);
     return new FilteredEntrySortedMap<>(map.sortedMap(), predicate);
   }
 
@@ -2549,7 +2568,8 @@ public final class Maps {
    */
   private static <K, V> BiMap<K, V> filterFiltered(
       FilteredEntryBiMap<K, V> map, Predicate<? super Entry<K, V>> entryPredicate) {
-    Predicate<Entry<K, V>> predicate = CollectPredicates.<Entry<K, V>>and(map.predicate, entryPredicate);
+    Predicate<Entry<K, V>> predicate =
+        CollectPredicates.<Entry<K, V>>and(map.predicate, entryPredicate);
     return new FilteredEntryBiMap<>(map.unfiltered(), predicate);
   }
 
@@ -3438,24 +3458,6 @@ public final class Maps {
     }
   }
 
-  /**
-   * Delegates to {@link Map#remove}. Returns {@code null} on {@code ClassCastException} and {@code
-   * NullPointerException}.
-   */
-  static <V> V safeRemove(Map<?, V> map, Object key) {
-    checkNotNull(map);
-    try {
-      return map.remove(key);
-    } catch (ClassCastException | NullPointerException e) {
-      return null;
-    }
-  }
-
-  /** An admittedly inefficient implementation of {@link Map#containsKey}. */
-  static boolean containsKeyImpl(Map<?, ?> map, @Nullable Object key) {
-    return Iterators.contains(keyIterator(map.entrySet().iterator()), key);
-  }
-
   /** An implementation of {@link Map#equals}. */
   static boolean equalsImpl(Map<?, ?> map, Object object) {
     if (map == object) {
@@ -3467,7 +3469,7 @@ public final class Maps {
     return false;
   }
 
-  /** An implementation of {@link Map#toString}. */
+  /** An implementation of {@code Map#toString}. */
   static String toStringImpl(Map<?, ?> map) {
     StringBuilder sb = Collections2.newStringBuilderForCollection(map.size()).append('{');
     boolean first = true;
@@ -3840,6 +3842,7 @@ public final class Maps {
       NavigableMap<K, V> map, Range<K> range) {
     if (map.comparator() != null
         && map.comparator() != Comparator.naturalOrder()
+        && map.comparator() != NaturalOrdering.INSTANCE
         && range.hasLowerBound()
         && range.hasUpperBound()) {
       checkArgument(

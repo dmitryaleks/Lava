@@ -516,7 +516,8 @@ public final class Range<C extends Comparable> extends RangeGwtSerializationDepe
    *
    * <p>Note that certain discrete ranges are not considered connected, even though there are no
    * elements "between them." For example, {@code [3, 5]} is not considered connected to {@code [6,
-   * 10]}. In these cases, it may be desirable for both input ranges to be preprocessed with {@code canonical(DiscreteDomain)} (not ported to Lava) before testing for connectedness.
+   * 10]}. In these cases, it may be desirable for both input ranges to be preprocessed with {@code
+   * canonical(DiscreteDomain)} (not ported to Lava) before testing for connectedness.
    */
   public boolean isConnected(Range<C> other) {
     return lowerBound.compareTo(other.upperBound) <= 0

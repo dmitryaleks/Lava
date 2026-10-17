@@ -67,12 +67,12 @@ import java.util.logging.Logger;
  * semantics follow Guava 27.0.1's {@code LocalCache} with {@code concurrencyLevel(1)}, built on one
  * {@link HashMap} instead of lock-striped segments.
  *
- * <p>Each entry is a {@link Node} holding its key reference (strong, or weak and identity-compared),
- * a value reference (strong, weak or soft, with its weight, or a {@link LoadingValue} while a load,
- * refresh or compute is in flight), its access and write times, and its positions in two intrusive
- * doubly linked lists: access order (for LRU eviction and access expiration) and write order (for
- * write expiration). Every operation is O(1) apart from eviction and expiration, which remove from
- * the heads of those lists.
+ * <p>Each entry is a {@link Node} holding its key reference (strong, or weak and
+ * identity-compared), a value reference (strong, weak or soft, with its weight, or a {@link
+ * LoadingValue} while a load, refresh or compute is in flight), its access and write times, and its
+ * positions in two intrusive doubly linked lists: access order (for LRU eviction and access
+ * expiration) and write order (for write expiration). Every operation is O(1) apart from eviction
+ * and expiration, which remove from the heads of those lists.
  *
  * <p>Differences from Guava's implementation, all within {@code Cache}'s documented contract:
  *
@@ -90,9 +90,9 @@ import java.util.logging.Logger;
  *       IllegalStateException("Recursive load of: ...")}, as in Guava. Where Guava would block the
  *       thread forever, Lava throws the same exception: an {@code asMap().compute*} of a key
  *       whose load, compute or refresh is running on the call stack, or a {@code get}, from a
- *       removal listener, of a key that is about to load. A {@code get} that finds an asynchronous refresh
- *       still pending, and no live value, loads synchronously instead of waiting; the refresh
- *       result is then discarded.
+ *       removal listener, of a key that is about to load. A {@code get} that finds an asynchronous
+ *       refresh still pending, and no live value, loads synchronously instead of waiting; the
+ *       refresh result is then discarded.
  *   <li>Guava 27.0.1 leaves an entry stuck in a loading state when a {@code compute} function
  *       throws or when {@code compute} removes an existing entry by returning null (later {@code
  *       get}s then throw {@code InvalidCacheLoadException}). Lava restores or removes the entry,
@@ -171,7 +171,8 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
   /** The total weight of the live entries. */
   long totalWeight;
 
-  LocalCache(CacheBuilder<? super K, ? super V> builder, @Nullable CacheLoader<? super K, V> loader) {
+  LocalCache(
+      CacheBuilder<? super K, ? super V> builder, @Nullable CacheLoader<? super K, V> loader) {
     keyStrength = builder.getKeyStrength();
     valueStrength = builder.getValueStrength();
     keyEquivalence = builder.getKeyEquivalence();
@@ -1015,7 +1016,8 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
         // Lava: account for the reference in the entry, which is not this load's when the load is
         // stale (Guava 27.0.1 uses this load's, and miscounts).
         if (ref.isActive()) {
-          RemovalCause cause = (entryValue == null) ? RemovalCause.COLLECTED : RemovalCause.REPLACED;
+          RemovalCause cause =
+              (entryValue == null) ? RemovalCause.COLLECTED : RemovalCause.REPLACED;
           enqueueNotification(key, entryValue, ref.getWeight(), cause);
           newCount--;
         }

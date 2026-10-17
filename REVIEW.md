@@ -241,3 +241,39 @@ Review method:
 - **Reviewer, on the fixed tree:** its own fuzzers found no differences from Guava over 400 seeds × 40 rounds, and no invariant violations in 60,000 re-entrancy scenarios (105 per 10,000 before the fixes). Its repros now give the right sizes, weights and notifications.
 - **Mutants:** 31 of 37 targeted mutants were re-run before the run was stopped. These were the reviewer's survivors plus reverts of each fix, and 29 were killed. The two survivors, the stale value-reference guard and `reload`'s key check, were weaknesses in the new tests, which were then tightened.
 - **Long fuzz runs:** `LAVA_CACHE_FUZZ_SEEDS=400` ran 10,000 differential sequences and 10,000 re-entrancy scenarios with no failures.
+
+## Milestone 8 — final whole-codebase review (commit `31e7fab`)
+
+This review targeted what per-milestone reviews structurally miss: cross-package interactions, contract and documentation accuracy across the codebase, API-surface completeness, build and packaging, and the test suite as a whole. Mutation testing was excluded at the user's request. Review method:
+- probes run side by side against the Guava jar;
+- a reflective differential sweep of 181 public static methods (about 27k calls per seed, three seeds) and of 146 instance methods;
+- an independent closure of the public types reachable from the 8 entry points;
+- `getMethods()` and `serialVersionUID` diffs;
+- the full suite run under several GCs, `-Xint`, random test order, other locales and time zones, a 48 MB heap and different identity-hash modes;
+- scratch copies of the build to test its guards.
+
+**No critical or major defects.** Behaviour matches Guava everywhere probed apart from the two small divergences below (m5, n1), now fixed. The other findings concern the build, the test harness and documentation.
+
+| # | Sev | Finding | Verdict | Resolution |
+|---|-----|---------|---------|------------|
+| m1 | m | Differential tests compare exception messages, which HotSpot drops from implicit exceptions in hot code unless the JVM runs with `-XX:-OmitStackTraceInFastThrow`. Only `build.gradle.kts` set the flag: with it switched off, 2 tests failed. | Accepted | New `testing.ExceptionMessages`, used by the 14 differential tests. Under Gradle, which sets the flag, messages are still compared exactly. In a JVM without the flag, JVM-generated messages of NPE, AIOOBE, CCE, ArithmeticException and ArrayStoreException become a placeholder. With the flag reversed, all 4,980 tests pass. README documents the VM options for IDE runners. |
+| m2 | m | `LAVA_CACHE_FUZZ_SEEDS` was not a test input, so after a green run the README's "longer fuzz run" was reported `UP-TO-DATE` without running. | Accepted | Both fuzz variables are now inputs of `test`. Verified: changing or unsetting them re-runs the task. |
+| m3 | m | None of the three jars contained `LICENSE` or `NOTICE`, and the manifest had no module name. | Accepted | Every jar now carries `META-INF/LICENSE` and `META-INF/NOTICE`, and `Automatic-Module-Name: com.simplelibs.lava`. |
+| m4 | m | `AbstractIteratorTest.testFreesNextReference` depends on the GC but was not tagged `gc`, and README did not mention `-PskipGcTests`. | Accepted | Tagged and documented. |
+| m5 | m | A one-entry `ImmutableMap` is a `BiMap` in Guava (`SingletonImmutableBiMap`) but was not in Lava. This affected `instanceof`, `Maps.filter*` dispatch (Guava returns a filtered `BiMap` whose `values()` is a `Set`) and event-bus handler types. The class Javadoc claimed parity. | Accepted | `SingletonImmutableMap` implements `BiMap`: `values()` is an `ImmutableSet`, `inverse()` is the cached swapped singleton, and `forcePut` throws. Factories, filtered views and serialization are compared with Guava. |
+| m6 | m | The O(n) iterator start-up of `asMap()` (M7 F10) also hits `Maps.filter*` `isEmpty()`, `transform*` views and `stream().findFirst()`: about 1.6 ms against Guava's microseconds at 200k entries. | Deferred (documented) | A lazy iterator would need either per-iteration bookkeeping or a registry of live iterators to keep both no-`ConcurrentModificationException` and no-duplicate semantics while hooks mutate the cache. README now lists the affected patterns and their cost. |
+| n1 | n | `Maps.difference(SortedMap, Map)` used `Comparator.naturalOrder()`, where Guava uses `Ordering.natural()`. A null key gave a different NPE message, and the result's comparator had a different `toString`. | Accepted | A package-private `NaturalOrdering` matches Guava's behaviour, `toString` and serialization. |
+| n2 | n | 27 broken `{@link}`s in non-public Javadoc (invisible to the public `javadoc` task), and stale mentions of unported Guava types in public Javadoc. | Accepted | `javadoc -private -Xdoclint` is clean. The public examples and wording are fixed. |
+| n3 | n | Upstream leftovers: 23 `TODO(<guava author>)` comments, a stray TODO and GWT-specific comments. | Accepted | Removed or reworded. `RangeGwtSerializationDependencies` stays, because `Range` extends it for parity. Ported test names stay as in Guava. |
+| n4 | n | 175 never-executed methods remained, against PLAN's claim that dead helpers are pruned. | Accepted | Pruned with the compiler as judge, in three passes until nothing more could go. A method was removed when it never ran, was static or private, was neither API nor an override, and its removal left main and test code compiling. Serialization hooks were excluded. 29 helpers went, and all tests passed after each pass. The 124 that remain are 94 overrides, 16 instance methods that may implement or override, 7 helpers called from other untested code, and 7 public API methods, which the reviewer's probes found to behave as Guava's. |
+| n5 | n | README inaccuracies: the lint flags, the `MoreExecutors` omissions, the `Names` example, inert nullness annotations and event-bus supertype order. | Accepted | All corrected. |
+| n6 | n | 46 main and 343 test lines over 100 columns. | Accepted for main | Main code rewrapped; no main line exceeds 100 columns. Test lines are left as they are. |
+| n7 | n | A timing assertion with a small margin. Two tests ran tasks on thread pools, against the owner-thread contract. | Accepted | The margin is widened to 300 ms per listener. `ExecutionListTest` now uses an executor that the test drains on its own thread. `ListenableFutureTaskTest` must observe a running task, so it keeps one hand-off thread, documented as such. |
+
+**Result.** `./gradlew check` is green with 4,980 tests. Coverage rose to LINE 94.56% and BRANCH 91.67%, from 93.27% and 90.44%. `javadoc -private -Xdoclint` reports 0 errors and 0 warnings. With `-XX:+OmitStackTraceInFastThrow`, the whole suite passes. No finding was disputed: m6 takes one of the reviewer's two proposed fixes.
+
+**Questions from the reviewer, answered.**
+- m5: not a conscious trade-off; it is fixed.
+- m6: the O(n) start-up stays for this release, documented.
+- m1: the flag remains in `build.gradle.kts`, but the tests no longer depend on it.
+- This section is the Milestone 8 record.

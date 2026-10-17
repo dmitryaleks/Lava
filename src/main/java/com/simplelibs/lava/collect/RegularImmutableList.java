@@ -86,6 +86,4 @@ class RegularImmutableList<E> extends ImmutableList<E> {
   public Spliterator<E> spliterator() {
     return Spliterators.spliterator(array, SPLITERATOR_CHARACTERISTICS);
   }
-
-  // TODO(lowasser): benchmark optimizations for equals() and see if they're worthwhile
 }

@@ -44,7 +44,7 @@ Beyond the imports:
   - `Multimap.keys()` and `ImmutableMultimap.keys()` (Lava has no `Multiset`);
   - `ImmutableMultimap`'s static factories and `Builder` (use `ImmutableSetMultimap`);
   - `Range.canonical(DiscreteDomain)`;
-  - the `Futures` combinators.
+  - the `Futures` combinators, and every `MoreExecutors` member except `directExecutor()`.
 - **`ImmutableSetMultimap.Builder.orderValuesBy`** collapses values that compare equal, as Guava does, but yields ordered `ImmutableSet`s rather than `ImmutableSortedSet`s, so `contains` uses `equals`.
 - **`Lists.partition`** returns correct sublists for lists of more than 2<sup>30</sup> elements, where Guava 27.0.1's `int` arithmetic overflows.
 - **Caches**:
@@ -54,10 +54,12 @@ Beyond the imports:
   - `asMap().compute*` that throws, or that removes an existing entry by returning null, leaves the cache consistent, and so does a weigher that throws for a loaded value. In Guava 27.0.1 the entry is left stuck loading.
   - When a compute function itself writes or removes its key, the counts stay right. As in Guava, the written value wins over a non-null result and is removed by a null one; if the function returns the old value, Lava keeps the written value, which Guava drops without a notification.
   - Weighers must not call back into the cache.
-  - **Performance:** creating an `asMap()` iterator copies a snapshot of the table, which costs O(n) even if only the first element is read. Avoid `iterator().next()` probes of large caches.
+  - **Performance:** creating an iterator over `asMap()` or one of its views copies a snapshot of the table, which costs O(n) even if only the first element is read (about 1.5 ms at 200,000 entries, where Guava takes microseconds). Short-circuiting reads over a large cache pay it too: `iterator().next()`, `stream().findFirst()` or `anyMatch`, `isEmpty()` of a `Maps.filterKeys`/`filterValues`/`filterEntries` view, and the first `next()` of a `Maps.transform*` view. Use `size()`, `containsKey` and `get` where you can.
   - Caches are not serializable.
 - **Event bus**: errors found while discovering `@Subscribe` methods are thrown directly. A wrong-arity method gives `IllegalArgumentException`, and a missing class gives `NoClassDefFoundError`; Guava wraps these in `UncheckedExecutionException` and `ExecutionError`.
-- **Names**: logger names and `toString`s that embed class names (`Enums.stringConverter(<class>.class)`) use the `com.simplelibs.lava` packages.
+- **Nullness annotations**: `@NonNull` and `@Nullable` are documentation markers with the Checker Framework's targets and retention. The Checker Framework does not recognise them as its qualifiers.
+- **Event bus dispatch order**: for an event whose type has several unrelated supertypes, subscribers of those supertypes may run in a different order than in Guava, which leaves that order unspecified too. For example, an `ImmutableList` lists `RandomAccess` and `Serializable` in a different order in Lava.
+- **Names**: logger names, and `toString`s that embed the name of a Lava class (such as `Enums.stringConverter(RemovalCause.class)`), use the `com.simplelibs.lava` packages.
 - **Serialization**: Lava's serialized forms are not wire-compatible with Guava's.
 
 The package documentation of each package (`package-info.java`) lists its differences in detail.
@@ -70,7 +72,7 @@ The package documentation of each package (`package-info.java`) lists its differ
 
 `check` runs every step below:
 
-1. Compiles the main code with `-Xlint:all -Werror` and runs the JUnit 5 tests.
+1. Compiles the main code with `-Xlint:all -Werror`, except for the `serial`, `rawtypes`, `unchecked` and `varargs` categories, which Guava-derived code triggers by design (see `build.gradle.kts`). Then runs the JUnit 5 tests.
 2. Builds the Javadoc.
 3. Enforces a JaCoCo gate of 85% line and 80% branch coverage on the main code.
 4. Verifies that the main code neither mentions nor depends on Guava. The compile and runtime classpaths are empty.
@@ -83,7 +85,13 @@ Guava 27.0.1 is a *test-only* dependency, used as an oracle:
 - **`*DifferentialTest` and `*FuzzTest`** run seeded random operation sequences against Lava and Guava side by side, comparing results, exception messages and state.
 - **Ported Guava tests and contract suites.** Guava's own tests are ported to JUnit 5 and AssertJ. The contract suites (`MapInterfaceTest`, `ListIteratorTester`, the list and collection contracts) stand in for guava-testlib.
 
-Longer fuzz runs: set `LAVA_CACHE_FUZZ_SEEDS=400` (the default is 40, each seed running 25 random configurations) for `CacheDifferentialTest` and `CacheReentrancyFuzzTest`. Set `LAVA_CACHE_FUZZ_TRACE=<seed>:<round>` to print one round step by step. Tests tagged `gc` depend on the garbage collector.
+Options:
+
+- **Longer fuzz runs:** set `LAVA_CACHE_FUZZ_SEEDS=400` for `CacheDifferentialTest` and `CacheReentrancyFuzzTest`. The default is 40, and each seed runs 25 random configurations. Set `LAVA_CACHE_FUZZ_TRACE=<seed>:<round>` to print one round step by step. Changing either variable re-runs the tests.
+- **GC-dependent tests:** these are tagged `gc`. Skip them with `./gradlew check -PskipGcTests`.
+- **Running tests outside Gradle**, for example with an IDE's own JUnit runner:
+  - add the VM options `--add-opens java.base/java.util=ALL-UNNAMED` (needed by `MapsTest`) and `-XX:-OmitStackTraceInFastThrow`;
+  - without the second option, the differential tests still pass, but they compare less: they ignore the messages that the JVM generates for exceptions such as `NullPointerException`.
 
 `PLAN.md` describes the design and `REVIEW.md` records the adversarial review of each milestone.
 

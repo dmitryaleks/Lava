@@ -24,9 +24,10 @@ import java.util.Map.Entry;
 import java.util.Objects;
 
 /**
- * A map entry which forwards all its method calls to another map entry, as {@code delegate()} returns.
- * Package-private subset of Guava's {@code ForwardingMapEntry} used by Lava's views: it overrides the
- * interface methods only, and Guava's {@code standard*} helper methods are not ported.
+ * A map entry which forwards all its method calls to another map entry, as {@code delegate()}
+ * returns. Package-private subset of Guava's {@code ForwardingMapEntry} used by Lava's views: it
+ * overrides the interface methods only, and Guava's {@code standard*} helper methods are not
+ * ported.
  */
 abstract class ForwardingMapEntry<K, V> extends ForwardingObject implements Map.Entry<K, V> {
 

@@ -2,8 +2,10 @@ package com.simplelibs.lava.collect;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.simplelibs.lava.base.Converter;
+import com.simplelibs.lava.testing.ExceptionMessages;
 import com.simplelibs.lava.testing.SerializableTester;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -39,7 +41,7 @@ class MapsGuaranteesTest {
     try {
       return String.valueOf(call.get());
     } catch (RuntimeException e) {
-      return e.getClass().getName() + ": " + e.getMessage();
+      return e.getClass().getName() + ": " + ExceptionMessages.of(e);
     }
   }
 
@@ -263,5 +265,33 @@ class MapsGuaranteesTest {
       assertThat(range.apply(i)).as(String.valueOf(i)).isEqualTo(range.contains(i));
       assertThat(range.test(i)).as(String.valueOf(i)).isEqualTo(range.contains(i));
     }
+  }
+
+  @Test
+  void sortedDifferenceUsesGuavasNaturalOrdering() {
+    // final review n1: Guava uses Ordering.natural(), not Comparator.naturalOrder()
+    Map<Integer, Integer> withNullKey = new java.util.HashMap<>();
+    withNullKey.put(null, 1);
+    Throwable lava = catchThrowable(() -> Maps.difference(new TreeMap<Integer, Integer>(), withNullKey));
+    Throwable guava =
+        catchThrowable(
+            () -> com.google.common.collect.Maps.difference(new TreeMap<Integer, Integer>(), withNullKey));
+    assertThat(lava).isInstanceOf(NullPointerException.class);
+    assertThat(lava.getMessage()).isEqualTo(guava.getMessage()).isNull();
+
+    TreeMap<Integer, String> left = new TreeMap<>(Map.of(1, "a", 2, "b"));
+    Map<Integer, String> right = Map.of(2, "b", 3, "c");
+    SortedMapDifference<Integer, String> diff = Maps.difference(left, right);
+    com.google.common.collect.SortedMapDifference<Integer, String> guavaDiff =
+        com.google.common.collect.Maps.difference(left, right);
+    assertThat(diff.entriesOnlyOnLeft().comparator().toString())
+        .isEqualTo(guavaDiff.entriesOnlyOnLeft().comparator().toString())
+        .isEqualTo("Ordering.natural()");
+    assertThat(diff.toString()).isEqualTo(guavaDiff.toString());
+    assertThat(SerializableTester.reserialize(diff.entriesOnlyOnLeft().comparator()))
+        .isSameAs(diff.entriesOnlyOnLeft().comparator());
+    // a sub map over it accepts natural ranges, like a map without a comparator
+    NavigableMap<Integer, String> onBoth = new TreeMap<>(diff.entriesInCommon());
+    assertThat(Maps.subMap(onBoth, Range.closed(1, 3))).isEqualTo(Map.of(2, "b"));
   }
 }

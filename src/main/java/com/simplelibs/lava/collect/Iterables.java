@@ -82,25 +82,11 @@ final class Iterables {
    * <p><b>Java 8 users:</b> the {@code Stream} equivalent to this method is {@code
    * stream.collect(MoreCollectors.onlyElement())}.
    *
-   * @throws NoSuchElementException if the iterable is empty
+   * @throws java.util.NoSuchElementException if the iterable is empty
    * @throws IllegalArgumentException if the iterable contains multiple elements
    */
   public static <T> T getOnlyElement(Iterable<T> iterable) {
     return Iterators.getOnlyElement(iterable.iterator());
-  }
-
-  /**
-   * Returns the single element contained in {@code iterable}, or {@code defaultValue} if the
-   * iterable is empty.
-   *
-   * <p><b>Java 8 users:</b> the {@code Stream} equivalent to this method is {@code
-   * stream.collect(MoreCollectors.toOptional()).orElse(defaultValue)}.
-   *
-   * @throws IllegalArgumentException if the iterator contains multiple elements
-   */
-  public static <T> @Nullable T getOnlyElement(
-      Iterable<? extends T> iterable, @Nullable T defaultValue) {
-    return Iterators.getOnlyElement(iterable.iterator(), defaultValue);
   }
 
   /**
@@ -156,23 +142,10 @@ final class Iterables {
   /**
    * Returns {@code true} if any element in {@code iterable} satisfies the predicate.
    *
-   * <p><b>{@code Stream} equivalent:</b> {@link Stream#anyMatch}.
+   * <p><b>{@code Stream} equivalent:</b> {@code Stream#anyMatch}.
    */
   public static <T> boolean any(Iterable<T> iterable, Predicate<? super T> predicate) {
     return Iterators.any(iterable.iterator(), predicate);
-  }
-
-  /**
-   * Returns the first element in {@code iterable} that satisfies the given predicate; use this
-   * method only when such an element is known to exist. If it is possible that <i>no</i> element
-   * will match, use {@link #tryFind} or {@link #find(Iterable, Predicate, Object)} instead.
-   *
-   * <p><b>{@code Stream} equivalent:</b> {@code stream.filter(predicate).findFirst().get()}
-   *
-   * @throws NoSuchElementException if no element in {@code iterable} matches the given predicate
-   */
-  public static <T> T find(Iterable<T> iterable, Predicate<? super T> predicate) {
-    return Iterators.find(iterable.iterator(), predicate);
   }
 
   /**

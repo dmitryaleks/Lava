@@ -3,6 +3,7 @@ package com.simplelibs.lava.collect;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.DynamicTest.dynamicTest;
 
+import com.simplelibs.lava.testing.ExceptionMessages;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -205,7 +206,7 @@ class ListsViewDifferentialTest {
   }
 
   private static String thrown(Throwable t) {
-    return "THROW " + t.getClass().getName() + ": " + t.getMessage();
+    return "THROW " + t.getClass().getName() + ": " + ExceptionMessages.of(t);
   }
 
   /** Executes the operation that {@code a} describes on {@code v} and describes its outcome. */

@@ -2,6 +2,7 @@ package com.simplelibs.lava.collect;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.simplelibs.lava.testing.ExceptionMessages;
 import com.simplelibs.lava.testing.SerializableTester;
 import java.util.ArrayList;
 import java.util.List;
@@ -81,7 +82,7 @@ class SynchronizedBiMapTest {
     try {
       return String.valueOf(op.apply(map));
     } catch (RuntimeException e) {
-      return e.getClass().getName() + ": " + e.getMessage();
+      return e.getClass().getName() + ": " + ExceptionMessages.of(e);
     }
   }
 

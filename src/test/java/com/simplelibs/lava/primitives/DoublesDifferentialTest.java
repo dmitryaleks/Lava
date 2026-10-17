@@ -2,6 +2,7 @@ package com.simplelibs.lava.primitives;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.simplelibs.lava.testing.ExceptionMessages;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -53,13 +54,13 @@ class DoublesDifferentialTest {
       g = guava.call();
     } catch (Exception e) {
       g = null;
-      gThrown = e.getClass().getName() + ": " + e.getMessage();
+      gThrown = e.getClass().getName() + ": " + ExceptionMessages.of(e);
     }
     try {
       l = lava.call();
     } catch (Exception e) {
       l = null;
-      lThrown = e.getClass().getName() + ": " + e.getMessage();
+      lThrown = e.getClass().getName() + ": " + ExceptionMessages.of(e);
     }
     assertThat(lThrown).as(what + " exception").isEqualTo(gThrown);
     assertThat(normalize(l)).as(what).isEqualTo(normalize(g));

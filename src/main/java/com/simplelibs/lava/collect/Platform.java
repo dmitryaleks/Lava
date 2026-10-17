@@ -23,23 +23,8 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-/** Methods factored out so that Guava could emulate them differently in GWT. */
+/** Methods that Guava factors out per platform; Lava has one implementation of each. */
 final class Platform {
-  static <K, V> Map<K, V> newHashMapWithExpectedSize(int expectedSize) {
-    return Maps.newHashMapWithExpectedSize(expectedSize);
-  }
-
-  static <K, V> Map<K, V> newLinkedHashMapWithExpectedSize(int expectedSize) {
-    return Maps.newLinkedHashMapWithExpectedSize(expectedSize);
-  }
-
-  static <E> Set<E> newHashSetWithExpectedSize(int expectedSize) {
-    return Sets.newHashSetWithExpectedSize(expectedSize);
-  }
-
-  static <E> Set<E> newLinkedHashSetWithExpectedSize(int expectedSize) {
-    return Sets.newLinkedHashSetWithExpectedSize(expectedSize);
-  }
 
   static <K, V> Map<K, V> preservesInsertionOrderOnPutsMap() {
     return new LinkedHashMap<>();

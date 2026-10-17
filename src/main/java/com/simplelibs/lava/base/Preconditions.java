@@ -96,12 +96,12 @@ import java.util.logging.Logger;
  *
  * <h2>Only {@code %s} is supported</h2>
  *
- * <p>{@code Preconditions} uses Guava's {@code Strings.lenientFormat} algorithm to format error message template
- * strings. This only supports the {@code "%s"} specifier, not the full range of {@link
- * java.util.Formatter} specifiers. However, note that if the number of arguments does not match the
- * number of occurrences of {@code "%s"} in the format string, {@code Preconditions} will still
- * behave as expected, and will still include all argument values in the error message; the message
- * will simply not be formatted exactly as intended.
+ * <p>{@code Preconditions} uses Guava's {@code Strings.lenientFormat} algorithm to format error
+ * message template strings. This only supports the {@code "%s"} specifier, not the full range of
+ * {@link java.util.Formatter} specifiers. However, note that if the number of arguments does not
+ * match the number of occurrences of {@code "%s"} in the format string, {@code Preconditions} will
+ * still behave as expected, and will still include all argument values in the error message; the
+ * message will simply not be formatted exactly as intended.
  *
  * <h2>More information</h2>
  *

@@ -69,9 +69,6 @@ public final class Doubles {
    */
   public static int hashCode(double value) {
     return ((Double) value).hashCode();
-    // TODO(kevinb): do it this way when we can (GWT problem):
-    // long bits = Double.doubleToLongBits(value);
-    // return (int) (bits ^ (bits >>> 32));
   }
 
   /**
@@ -134,7 +131,6 @@ public final class Doubles {
     return indexOf(array, target, 0, array.length);
   }
 
-  // TODO(kevinb): consider making this public
   private static int indexOf(double[] array, double target, int start, int end) {
     for (int i = start; i < end; i++) {
       if (array[i] == target) {
@@ -188,7 +184,6 @@ public final class Doubles {
     return lastIndexOf(array, target, 0, array.length);
   }
 
-  // TODO(kevinb): consider making this public
   private static int lastIndexOf(double[] array, double target, int start, int end) {
     for (int i = end - 1; i >= start; i--) {
       if (array[i] == target) {
@@ -473,7 +468,7 @@ public final class Doubles {
     int len = boxedArray.length;
     double[] array = new double[len];
     for (int i = 0; i < len; i++) {
-      // checkNotNull for GWT (do not optimize)
+      // checkNotNull, as in Guava (do not optimize)
       array[i] = ((Number) checkNotNull(boxedArray[i])).doubleValue();
     }
     return array;
@@ -573,7 +568,7 @@ public final class Doubles {
     public Double set(int index, Double element) {
       checkElementIndex(index, size());
       double oldValue = array[start + index];
-      // checkNotNull for GWT (do not optimize)
+      // checkNotNull, as in Guava (do not optimize)
       array[start + index] = checkNotNull(element);
       return oldValue;
     }
@@ -685,8 +680,6 @@ public final class Doubles {
    */
   public static @Nullable Double tryParse(String string) {
     if (FLOATING_POINT_PATTERN.matcher(string).matches()) {
-      // TODO(lowasser): could be potentially optimized, but only with
-      // extensive testing
       try {
         return Double.parseDouble(string);
       } catch (NumberFormatException e) {

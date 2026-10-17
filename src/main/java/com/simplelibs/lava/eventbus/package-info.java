@@ -51,8 +51,8 @@
  *       registerCustomerChangeEventListener} method. These methods are rarely defined in common
  *       interfaces, so in addition to knowing every possible producer, you must also know its type.
  *   <li><strong>...with EventBus:</strong> pass your object to the {@link
- *       com.simplelibs.lava.eventbus.EventBus#register(Object)} method on an EventBus. You'll need to
- *       make sure that your object shares an EventBus instance with the event producers.
+ *       com.simplelibs.lava.eventbus.EventBus#register(Object)} method on an EventBus. You'll need
+ *       to make sure that your object shares an EventBus instance with the event producers.
  * </ul>
  *
  * <p>To listen for a common event supertype (such as EventObject or Object)...
@@ -69,8 +69,8 @@
  *   <li><strong>...in traditional Java events:</strong> add code to each event-dispatching method
  *       (perhaps using AOP).
  *   <li><strong>...with EventBus:</strong> subscribe to {@link
- *       com.simplelibs.lava.eventbus.DeadEvent}. The EventBus will notify you of any events that were
- *       posted but not delivered. (Handy for debugging.)
+ *       com.simplelibs.lava.eventbus.DeadEvent}. The EventBus will notify you of any events that
+ *       were posted but not delivered. (Handy for debugging.)
  * </ul>
  *
  * <h2>For Producers</h2>

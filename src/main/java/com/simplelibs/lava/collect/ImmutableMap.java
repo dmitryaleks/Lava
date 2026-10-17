@@ -339,11 +339,6 @@ public abstract class ImmutableMap<K, V> implements Map<K, V>, Serializable {
       return this;
     }
 
-    /*
-     * TODO(kevinb): Should build() and the ImmutableBiMap & ImmutableSortedMap
-     * versions throw an IllegalStateException instead?
-     */
-
     /**
      * Returns a newly-created immutable map. The iteration order of the returned map is the order
      * in which entries were inserted into the builder, unless {@link #orderEntriesByValue} was
@@ -674,9 +669,7 @@ public abstract class ImmutableMap<K, V> implements Map<K, V>, Serializable {
   public abstract V get(@Nullable Object key);
 
   /**
-   * @since 21.0 (but only since 23.5 in the Android <a
-   *     href="https://github.com/google/guava#guava-google-core-libraries-for-java">flavor</a>).
-   *     Note, however, that Java 8 users can call this method with any version and flavor of Guava.
+   * @since 21.0
    */
   @Override
   public final V getOrDefault(@Nullable Object key, @Nullable V defaultValue) {
