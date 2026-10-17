@@ -8,12 +8,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -29,21 +29,82 @@ import org.junit.jupiter.api.TestFactory;
  * weight bounds, expiration after write and access, refresh, synchronous or same-thread
  * asynchronous reloading, bulk loading, failing loaders). Guava is built with {@code
  * concurrencyLevel(1)}, so its eviction is the same exact LRU as Lava's, and both read one shared
- * fake clock.
+ * fake clock. Keys come from a small pool with colliding hash codes and equal "twins" (distinct
+ * keys under {@code weakKeys}); configurations include weak keys and weak or soft values (values
+ * stay strongly reachable, so nothing is collected) and weights that exceed the maximum.
  *
- * <p>Every result, including exception classes, messages and causes, must match. Because Lava runs
- * maintenance eagerly where Guava defers it (see {@code LocalCache}), sizes, eviction counts and
- * removal notifications are compared after {@code cleanUp()}, as sorted multisets.
+ * <p>Every result, including exception classes, messages and causes, must match, and Lava's
+ * internal invariants ({@link CacheTesting#invariantViolations}) must hold after every operation.
+ * Because Lava runs maintenance eagerly where Guava defers it (see {@code LocalCache}), timed
+ * configurations compare sizes, eviction counts and removal notifications after {@code
+ * cleanUp()}, as sorted multisets. Untimed ones compare them after every operation, and the
+ * notifications in exact order unless an operation since the last comparison worked in iteration
+ * order, which is unspecified.
  *
  * <p>Deliberate differences are not exercised here: compute functions never throw and never
  * remove an existing entry by returning null, loaders do not re-enter the cache, and asynchronous
  * reloads are completed after every operation (Guava would block a single thread on a pending
- * refresh in some of these cases). Those paths have dedicated tests.
+ * refresh in some of these cases). Those paths have dedicated tests, and {@link
+ * CacheReentrancyFuzzTest} checks Lava's invariants on them.
  */
 class CacheDifferentialTest {
-  private static final int ROUNDS = 250;
-  private static final int OPS = 60;
+  private static final int ROUNDS_PER_SEED = 25;
+  private static final int OPS = 80;
   private static final int KEYS = 10;
+
+  /**
+   * A key whose hash codes collide in threes. {@link #POOL} holds keys 0 to 9 and a second,
+   * equal instance of keys 0 to 2.
+   */
+  private static final class Key {
+    final int id;
+
+    Key(int id) {
+      this.id = id;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      return o instanceof Key && ((Key) o).id == id;
+    }
+
+    @Override
+    public int hashCode() {
+      return id % 3;
+    }
+
+    @Override
+    public String toString() {
+      return "K" + id;
+    }
+  }
+
+  private static final Key[] POOL = new Key[KEYS + 3];
+
+  /** The extra keys that bulk loads return, which the caches store too. */
+  private static final Key[] EXTRA = new Key[KEYS + 4];
+
+  static {
+    for (int i = 0; i < POOL.length; i++) {
+      POOL[i] = new Key(i % KEYS);
+    }
+    for (int i = 0; i < EXTRA.length; i++) {
+      EXTRA[i] = new Key(KEYS + i);
+    }
+  }
+
+  /**
+   * Keeps every value within the {@code Integer} cache, so that weakly and softly referenced
+   * values stay strongly reachable and are never collected.
+   */
+  private static Integer bounded(int value) {
+    return value % 120;
+  }
+
+  /** Weighs 0 to 2, except that 19 weighs more than any maximum. */
+  private static int weigh(Integer value) {
+    return value == 19 ? 20 : Math.abs(value % 3);
+  }
 
   /** The shared fake clock, in nanoseconds. */
   private static final class Clock {
@@ -77,6 +138,9 @@ class CacheDifferentialTest {
     final long refreshAfterWrite;
     final boolean bulk;
     final boolean async;
+    final boolean weakKeys;
+    final boolean weakValues;
+    final boolean softValues;
 
     Config(Random random) {
       loading = random.nextInt(5) != 0;
@@ -89,41 +153,50 @@ class CacheDifferentialTest {
           loading && random.nextInt(3) == 0 ? new long[] {1, 2, 4}[random.nextInt(3)] : -1;
       bulk = random.nextBoolean();
       async = loading && random.nextInt(3) == 0;
+      weakKeys = random.nextInt(5) == 0;
+      int values = random.nextInt(6);
+      weakValues = values == 0;
+      softValues = values == 1;
+    }
+
+    boolean timed() {
+      return expireAfterWrite >= 0 || expireAfterAccess >= 0 || refreshAfterWrite >= 0;
     }
 
     @Override
     public String toString() {
       return "loading=" + loading + " maxSize=" + maximumSize + " maxWeight=" + maximumWeight
           + " eaw=" + expireAfterWrite + " eaa=" + expireAfterAccess + " raw=" + refreshAfterWrite
-          + " bulk=" + bulk + " async=" + async;
+          + " bulk=" + bulk + " async=" + async + " weakKeys=" + weakKeys + " weakValues="
+          + weakValues + " softValues=" + softValues;
     }
   }
 
   /** The common surface of both libraries' caches. */
   private interface Side {
-    Integer get(int key) throws Exception;
+    Integer get(Key key) throws Exception;
 
-    Integer getUnchecked(int key);
+    Integer getUnchecked(Key key);
 
-    Integer getIfPresent(int key);
+    Integer getIfPresent(Key key);
 
-    Integer get(int key, Callable<Integer> loader) throws Exception;
+    Integer get(Key key, Callable<Integer> loader) throws Exception;
 
-    void put(int key, int value);
+    void put(Key key, int value);
 
-    void putAll(Map<Integer, Integer> map);
+    void putAll(Map<Key, Integer> map);
 
-    void invalidate(int key);
+    void invalidate(Key key);
 
     void invalidateAll(Iterable<?> keys);
 
     void invalidateAll();
 
-    Map<Integer, Integer> getAll(Iterable<Integer> keys) throws Exception;
+    Map<Key, Integer> getAll(Iterable<Key> keys) throws Exception;
 
-    Map<Integer, Integer> getAllPresent(Iterable<?> keys);
+    Map<Key, Integer> getAllPresent(Iterable<?> keys);
 
-    void refresh(int key);
+    void refresh(Key key);
 
     long size();
 
@@ -131,7 +204,7 @@ class CacheDifferentialTest {
 
     String stats(boolean withEvictions);
 
-    ConcurrentMap<Integer, Integer> asMap();
+    ConcurrentMap<Key, Integer> asMap();
 
     List<String> notifications();
 
@@ -144,15 +217,16 @@ class CacheDifferentialTest {
    * as {@code removeIf} reach stale entries, and refresh them, in iteration order).
    */
   private static final class LoaderLogic {
-    private final Map<Integer, Integer> attempts = new HashMap<>();
+    // by identity: under weakKeys, twins are different keys
+    private final Map<Key, Integer> attempts = new IdentityHashMap<>();
 
-    private int nextAttempt(Integer key) {
+    private int nextAttempt(Key key) {
       return attempts.merge(key, 1, Integer::sum);
     }
 
-    Integer load(Integer key) throws Exception {
+    Integer load(Key key) throws Exception {
       int attempt = nextAttempt(key);
-      switch (key) {
+      switch (key.id) {
         case 6:
           if (attempt % 2 == 1) {
             throw new IllegalStateException("boom " + key);
@@ -169,26 +243,27 @@ class CacheDifferentialTest {
           break;
         default:
       }
-      return key * 1000 + attempt;
+      return bounded(key.id * 10 + attempt % 10);
     }
 
-    Map<Integer, Integer> loadAll(Iterable<? extends Integer> keys) throws Exception {
-      Map<Integer, Integer> result = new LinkedHashMap<>();
-      for (Integer key : keys) {
-        if (key == 6) {
+    Map<Key, Integer> loadAll(Iterable<? extends Key> keys) throws Exception {
+      Map<Key, Integer> result = new LinkedHashMap<>();
+      for (Key key : keys) {
+        if (key.id == 6) {
           throw new IllegalStateException("bulk boom");
         }
-        result.put(key, key == 7 ? null : (Integer) (key * 1000 + nextAttempt(key)));
+        result.put(key, key.id == 7 ? null : bounded(key.id * 10 + nextAttempt(key) % 10));
       }
       if (result.size() > 1) {
-        result.put(KEYS + result.size(), -1); // an extra key, which the cache stores too
+        Key extra = EXTRA[result.size()];
+        result.put(extra, -extra.id); // an extra key, which the cache stores too
       }
       return result;
     }
   }
 
   private static final class LavaSide implements Side {
-    final Cache<Integer, Integer> cache;
+    final Cache<Key, Integer> cache;
     final List<String> notifications = new ArrayList<>();
     final QueueExecutor executor = new QueueExecutor();
 
@@ -207,7 +282,7 @@ class CacheDifferentialTest {
         builder.maximumSize(config.maximumSize);
       }
       if (config.maximumWeight >= 0) {
-        builder.maximumWeight(config.maximumWeight).weigher((Integer k, Integer v) -> Math.abs(v % 3));
+        builder.maximumWeight(config.maximumWeight).weigher((Key k, Integer v) -> weigh(v));
       }
       if (config.expireAfterWrite >= 0) {
         builder.expireAfterWrite(config.expireAfterWrite, TimeUnit.NANOSECONDS);
@@ -218,22 +293,30 @@ class CacheDifferentialTest {
       if (config.refreshAfterWrite >= 0) {
         builder.refreshAfterWrite(config.refreshAfterWrite, TimeUnit.NANOSECONDS);
       }
-      CacheBuilder<Integer, Integer> typed =
+      if (config.weakKeys) {
+        builder.weakKeys();
+      }
+      if (config.weakValues) {
+        builder.weakValues();
+      } else if (config.softValues) {
+        builder.softValues();
+      }
+      CacheBuilder<Key, Integer> typed =
           builder.removalListener(
-              (RemovalNotification<Integer, Integer> n) ->
+              (RemovalNotification<Key, Integer> n) ->
                   notifications.add(n.getCause() + ":" + n.getKey() + "=" + n.getValue()));
       if (config.loading) {
         LoaderLogic logic = new LoaderLogic();
-        CacheLoader<Integer, Integer> loader =
+        CacheLoader<Key, Integer> loader =
             config.bulk
-                ? new CacheLoader<Integer, Integer>() {
+                ? new CacheLoader<Key, Integer>() {
                   @Override
-                  public Integer load(Integer key) throws Exception {
+                  public Integer load(Key key) throws Exception {
                     return logic.load(key);
                   }
 
                   @Override
-                  public Map<Integer, Integer> loadAll(Iterable<? extends Integer> keys)
+                  public Map<Key, Integer> loadAll(Iterable<? extends Key> keys)
                       throws Exception {
                     return logic.loadAll(keys);
                   }
@@ -243,9 +326,9 @@ class CacheDifferentialTest {
                     return "TestLoader";
                   }
                 }
-                : new CacheLoader<Integer, Integer>() {
+                : new CacheLoader<Key, Integer>() {
                   @Override
-                  public Integer load(Integer key) throws Exception {
+                  public Integer load(Key key) throws Exception {
                     return logic.load(key);
                   }
 
@@ -260,42 +343,42 @@ class CacheDifferentialTest {
       }
     }
 
-    private LoadingCache<Integer, Integer> loading() {
-      return (LoadingCache<Integer, Integer>) cache;
+    private LoadingCache<Key, Integer> loading() {
+      return (LoadingCache<Key, Integer>) cache;
     }
 
     @Override
-    public Integer get(int key) throws Exception {
+    public Integer get(Key key) throws Exception {
       return loading().get(key);
     }
 
     @Override
-    public Integer getUnchecked(int key) {
+    public Integer getUnchecked(Key key) {
       return loading().getUnchecked(key);
     }
 
     @Override
-    public Integer getIfPresent(int key) {
+    public Integer getIfPresent(Key key) {
       return cache.getIfPresent(key);
     }
 
     @Override
-    public Integer get(int key, Callable<Integer> loader) throws Exception {
+    public Integer get(Key key, Callable<Integer> loader) throws Exception {
       return cache.get(key, loader);
     }
 
     @Override
-    public void put(int key, int value) {
+    public void put(Key key, int value) {
       cache.put(key, value);
     }
 
     @Override
-    public void putAll(Map<Integer, Integer> map) {
+    public void putAll(Map<Key, Integer> map) {
       cache.putAll(map);
     }
 
     @Override
-    public void invalidate(int key) {
+    public void invalidate(Key key) {
       cache.invalidate(key);
     }
 
@@ -310,17 +393,17 @@ class CacheDifferentialTest {
     }
 
     @Override
-    public Map<Integer, Integer> getAll(Iterable<Integer> keys) throws Exception {
+    public Map<Key, Integer> getAll(Iterable<Key> keys) throws Exception {
       return loading().getAll(keys);
     }
 
     @Override
-    public Map<Integer, Integer> getAllPresent(Iterable<?> keys) {
+    public Map<Key, Integer> getAllPresent(Iterable<?> keys) {
       return cache.getAllPresent(keys);
     }
 
     @Override
-    public void refresh(int key) {
+    public void refresh(Key key) {
       loading().refresh(key);
     }
 
@@ -342,7 +425,7 @@ class CacheDifferentialTest {
     }
 
     @Override
-    public ConcurrentMap<Integer, Integer> asMap() {
+    public ConcurrentMap<Key, Integer> asMap() {
       return cache.asMap();
     }
 
@@ -358,7 +441,7 @@ class CacheDifferentialTest {
   }
 
   private static final class GuavaSide implements Side {
-    final com.google.common.cache.Cache<Integer, Integer> cache;
+    final com.google.common.cache.Cache<Key, Integer> cache;
     final List<String> notifications = new ArrayList<>();
     final QueueExecutor executor = new QueueExecutor();
 
@@ -378,7 +461,7 @@ class CacheDifferentialTest {
         builder.maximumSize(config.maximumSize);
       }
       if (config.maximumWeight >= 0) {
-        builder.maximumWeight(config.maximumWeight).weigher((Integer k, Integer v) -> Math.abs(v % 3));
+        builder.maximumWeight(config.maximumWeight).weigher((Key k, Integer v) -> weigh(v));
       }
       if (config.expireAfterWrite >= 0) {
         builder.expireAfterWrite(config.expireAfterWrite, TimeUnit.NANOSECONDS);
@@ -389,22 +472,30 @@ class CacheDifferentialTest {
       if (config.refreshAfterWrite >= 0) {
         builder.refreshAfterWrite(config.refreshAfterWrite, TimeUnit.NANOSECONDS);
       }
-      com.google.common.cache.CacheBuilder<Integer, Integer> typed =
+      if (config.weakKeys) {
+        builder.weakKeys();
+      }
+      if (config.weakValues) {
+        builder.weakValues();
+      } else if (config.softValues) {
+        builder.softValues();
+      }
+      com.google.common.cache.CacheBuilder<Key, Integer> typed =
           builder.removalListener(
-              (com.google.common.cache.RemovalNotification<Integer, Integer> n) ->
+              (com.google.common.cache.RemovalNotification<Key, Integer> n) ->
                   notifications.add(n.getCause() + ":" + n.getKey() + "=" + n.getValue()));
       if (config.loading) {
         LoaderLogic logic = new LoaderLogic();
-        com.google.common.cache.CacheLoader<Integer, Integer> loader =
+        com.google.common.cache.CacheLoader<Key, Integer> loader =
             config.bulk
-                ? new com.google.common.cache.CacheLoader<Integer, Integer>() {
+                ? new com.google.common.cache.CacheLoader<Key, Integer>() {
                   @Override
-                  public Integer load(Integer key) throws Exception {
+                  public Integer load(Key key) throws Exception {
                     return logic.load(key);
                   }
 
                   @Override
-                  public Map<Integer, Integer> loadAll(Iterable<? extends Integer> keys)
+                  public Map<Key, Integer> loadAll(Iterable<? extends Key> keys)
                       throws Exception {
                     return logic.loadAll(keys);
                   }
@@ -414,9 +505,9 @@ class CacheDifferentialTest {
                     return "TestLoader";
                   }
                 }
-                : new com.google.common.cache.CacheLoader<Integer, Integer>() {
+                : new com.google.common.cache.CacheLoader<Key, Integer>() {
                   @Override
-                  public Integer load(Integer key) throws Exception {
+                  public Integer load(Key key) throws Exception {
                     return logic.load(key);
                   }
 
@@ -435,42 +526,42 @@ class CacheDifferentialTest {
       }
     }
 
-    private com.google.common.cache.LoadingCache<Integer, Integer> loading() {
-      return (com.google.common.cache.LoadingCache<Integer, Integer>) cache;
+    private com.google.common.cache.LoadingCache<Key, Integer> loading() {
+      return (com.google.common.cache.LoadingCache<Key, Integer>) cache;
     }
 
     @Override
-    public Integer get(int key) throws Exception {
+    public Integer get(Key key) throws Exception {
       return loading().get(key);
     }
 
     @Override
-    public Integer getUnchecked(int key) {
+    public Integer getUnchecked(Key key) {
       return loading().getUnchecked(key);
     }
 
     @Override
-    public Integer getIfPresent(int key) {
+    public Integer getIfPresent(Key key) {
       return cache.getIfPresent(key);
     }
 
     @Override
-    public Integer get(int key, Callable<Integer> loader) throws Exception {
+    public Integer get(Key key, Callable<Integer> loader) throws Exception {
       return cache.get(key, loader);
     }
 
     @Override
-    public void put(int key, int value) {
+    public void put(Key key, int value) {
       cache.put(key, value);
     }
 
     @Override
-    public void putAll(Map<Integer, Integer> map) {
+    public void putAll(Map<Key, Integer> map) {
       cache.putAll(map);
     }
 
     @Override
-    public void invalidate(int key) {
+    public void invalidate(Key key) {
       cache.invalidate(key);
     }
 
@@ -485,17 +576,17 @@ class CacheDifferentialTest {
     }
 
     @Override
-    public Map<Integer, Integer> getAll(Iterable<Integer> keys) throws Exception {
+    public Map<Key, Integer> getAll(Iterable<Key> keys) throws Exception {
       return loading().getAll(keys);
     }
 
     @Override
-    public Map<Integer, Integer> getAllPresent(Iterable<?> keys) {
+    public Map<Key, Integer> getAllPresent(Iterable<?> keys) {
       return cache.getAllPresent(keys);
     }
 
     @Override
-    public void refresh(int key) {
+    public void refresh(Key key) {
       loading().refresh(key);
     }
 
@@ -517,7 +608,7 @@ class CacheDifferentialTest {
     }
 
     @Override
-    public ConcurrentMap<Integer, Integer> asMap() {
+    public ConcurrentMap<Key, Integer> asMap() {
       return cache.asMap();
     }
 
@@ -569,17 +660,24 @@ class CacheDifferentialTest {
 
   private static String show(Object o) {
     if (o instanceof Map) {
-      return new TreeMap<>((Map<?, ?>) o) + (o instanceof com.google.common.collect.ImmutableMap
-              || o instanceof com.simplelibs.lava.collect.ImmutableMap
-          ? " in order " + ((Map<?, ?>) o).keySet()
-          : "");
+      List<String> entries = new ArrayList<>();
+      for (Map.Entry<?, ?> e : ((Map<?, ?>) o).entrySet()) {
+        entries.add(e.getKey() + "=" + e.getValue());
+      }
+      String order =
+          o instanceof com.google.common.collect.ImmutableMap
+                  || o instanceof com.simplelibs.lava.collect.ImmutableMap
+              ? " in order " + entries
+              : "";
+      Collections.sort(entries);
+      return entries + order;
     }
     return String.valueOf(o);
   }
 
-  private static List<String> sortedEntries(ConcurrentMap<Integer, Integer> map) {
+  private static List<String> sortedEntries(Map<Key, Integer> map) {
     List<String> entries = new ArrayList<>();
-    for (Map.Entry<Integer, Integer> e : map.entrySet()) {
+    for (Map.Entry<Key, Integer> e : map.entrySet()) {
       entries.add(e.getKey() + "=" + e.getValue());
     }
     Collections.sort(entries);
@@ -591,66 +689,89 @@ class CacheDifferentialTest {
     List<DynamicTest> tests = new ArrayList<>();
     // LAVA_CACHE_FUZZ_SEEDS raises the number of seeds for longer local runs.
     String seeds = System.getenv("LAVA_CACHE_FUZZ_SEEDS");
-    int chunks = seeds == null ? 10 : Integer.parseInt(seeds);
-    for (int chunk = 0; chunk < chunks; chunk++) {
-      long seed = 0xCAC4EL + chunk;
+    int count = seeds == null ? 40 : Integer.parseInt(seeds);
+    for (int i = 0; i < count; i++) {
+      long seed = 0xCAC4EL + i;
       tests.add(dynamicTest("seed " + seed, () -> fuzz(seed)));
     }
     return tests;
   }
 
+  /** Operations whose notifications (or recency updates) follow the unspecified iteration order. */
+  private static final List<Integer> ITERATION_ORDER_OPERATIONS = List.of(8, 24, 27, 29, 30, 33, 34);
+
   private static void fuzz(long seed) {
     Random random = new Random(seed);
-    for (int round = 0; round < ROUNDS / 10; round++) {
+    for (int round = 0; round < ROUNDS_PER_SEED; round++) {
       Config config = new Config(random);
       Clock clock = new Clock();
-      Side lava = new LavaSide(config, clock);
+      LavaSide lava = new LavaSide(config, clock);
       Side guava = new GuavaSide(config, clock);
+      LocalCache<Key, Integer> localCache = CacheTesting.toLocalCache(lava.cache);
       tracing = (seed + ":" + round).equals(TRACE);
       StringBuilder trace = new StringBuilder();
+      boolean ordered = true;
       for (int step = 0; step < OPS; step++) {
-        int k = random.nextInt(KEYS);
+        Key k = POOL[random.nextInt(POOL.length)];
+        Key k2 = POOL[random.nextInt(POOL.length)];
         int v = random.nextInt(20);
-        int choice = random.nextInt(34);
-        Op op = operation(choice, k, v, config, clock);
-        trace.append(choice).append('(').append(k).append(',').append(v).append(") ");
+        int choice = random.nextInt(36);
+        Op op = operation(choice, k, k2, v, config, clock);
+        if (ITERATION_ORDER_OPERATIONS.contains(choice)) {
+          ordered = false;
+        }
+        trace.append(choice).append('(').append(k).append(',').append(k2).append(',').append(v)
+            .append(") ");
         String what = "seed " + seed + " round " + round + " [" + config + "] ops: " + trace;
         String l = outcome(lava, op);
         String g = outcome(guava, op);
         if (tracing) {
-          System.out.println(step + " op " + choice + "(" + k + "," + v + ") lava " + l + " | guava " + g
-              + " | lava " + sortedEntries(lava.asMap()) + " guava " + sortedEntries(guava.asMap())
-              + " | t=" + clock.nanos + " stats " + lava.stats(false) + " " + guava.stats(false)
-              + " notes " + lava.notifications() + " " + guava.notifications());
+          System.out.println(step + " op " + choice + "(" + k + "," + k2 + "," + v + ") lava " + l
+              + " | guava " + g + " | lava " + sortedEntries(lava.asMap()) + " guava "
+              + sortedEntries(guava.asMap()) + " | t=" + clock.nanos + " stats "
+              + lava.stats(false) + " " + guava.stats(false) + " notes " + lava.notifications()
+              + " " + guava.notifications());
         }
         assertThat(l).as(what).isEqualTo(g);
+        assertThat(CacheTesting.invariantViolations(localCache, true)).as(what + " invariants").isEmpty();
         assertThat(lava.stats(false)).as(what + " stats").isEqualTo(guava.stats(false));
-        if (choice == 26 || step == OPS - 1) {
-          lava.cleanUp();
-          guava.cleanUp();
+        if (choice == 26 || step == OPS - 1 || !config.timed()) {
+          if (config.timed()) {
+            lava.cleanUp();
+            guava.cleanUp();
+          }
           assertThat(sortedEntries(lava.asMap())).as(what + " contents").isEqualTo(sortedEntries(guava.asMap()));
           assertThat(lava.size()).as(what + " size").isEqualTo(guava.size());
           assertThat(lava.stats(true)).as(what + " stats with evictions").isEqualTo(guava.stats(true));
           List<String> ln = new ArrayList<>(lava.notifications());
           List<String> gn = new ArrayList<>(guava.notifications());
-          Collections.sort(ln);
-          Collections.sort(gn);
-          assertThat(ln).as(what + " notifications").isEqualTo(gn);
+          boolean exact = ordered && !config.timed();
+          if (!exact) {
+            Collections.sort(ln);
+            Collections.sort(gn);
+          }
+          assertThat(ln).as(what + (exact ? " notifications in order" : " notifications")).isEqualTo(gn);
           lava.notifications().clear();
           guava.notifications().clear();
+          ordered = true;
         }
       }
     }
   }
 
-  private static Op operation(int choice, int k, int v, Config config, Clock clock) {
+  /** Whether the caches see {@code a} and {@code b} as the same key. */
+  private static boolean same(Key a, Key b, Config config) {
+    return config.weakKeys ? a == b : a.equals(b);
+  }
+
+  private static Op operation(int choice, Key k, Key k2, int v, Config config, Clock clock) {
     // Operations that touch every entry in iteration order (replaceAll, and the entrySet and values
     // removeIfs, which read each entry) update recency in that order. Iteration order is
     // unspecified and differs between the implementations, so with a size bound, where recency
     // decides what is evicted next, only order-insensitive variants are used.
     boolean recencyDecidesEviction = config.maximumSize >= 0 || config.maximumWeight >= 0;
     if (recencyDecidesEviction && (choice == 30 || (choice == 24 && v % 3 != 1))) {
-      return side -> side.asMap().keySet().removeIf(key -> key % 4 == v % 4);
+      return side -> side.asMap().keySet().removeIf(key -> key.id % 4 == v % 4);
     }
     switch (choice) {
       case 0:
@@ -664,10 +785,10 @@ class CacheDifferentialTest {
             side.get(
                 k,
                 () -> {
-                  if (k == 4) {
+                  if (k.id == 4) {
                     throw new java.io.IOException("callable " + k);
                   }
-                  return k == 5 ? null : k * 7 + v;
+                  return k.id == 5 ? null : bounded(k.id * 7 + v);
                 });
       case 4:
         return side -> {
@@ -676,9 +797,9 @@ class CacheDifferentialTest {
         };
       case 5:
         return side -> {
-          Map<Integer, Integer> map = new LinkedHashMap<>();
+          Map<Key, Integer> map = new LinkedHashMap<>();
           map.put(k, v);
-          map.put((k + 1) % KEYS, v + 1);
+          map.put(k2, v + 1);
           side.putAll(map);
           return "putAll";
         };
@@ -689,7 +810,7 @@ class CacheDifferentialTest {
         };
       case 7:
         return side -> {
-          side.invalidateAll(Arrays.asList(k, null, (k + 2) % KEYS));
+          side.invalidateAll(Arrays.asList(k, null, k2));
           return "invalidateAll(keys)";
         };
       case 8:
@@ -701,10 +822,10 @@ class CacheDifferentialTest {
             : side -> side.getIfPresent(k);
       case 9:
         return config.loading
-            ? side -> side.getAll(Arrays.asList(k, (k + 1) % KEYS, k))
+            ? side -> side.getAll(Arrays.asList(k, k2, k))
             : side -> side.getIfPresent(k);
       case 10:
-        return side -> side.getAllPresent(Arrays.asList(k, (k + 1) % KEYS, k, null));
+        return side -> side.getAllPresent(Arrays.asList(k, k2, k, null));
       case 11:
         return config.loading
             ? side -> {
@@ -729,19 +850,21 @@ class CacheDifferentialTest {
       case 19:
         return side -> side.asMap().containsKey(k) + "/" + side.asMap().containsValue(v);
       case 20:
-        return side -> side.asMap().compute(k, (key, old) -> old == null ? (k == 3 ? null : (Integer) v) : (Integer) (old + 1));
+        return side ->
+            side.asMap().compute(
+                k, (key, old) -> old == null ? (k.id == 3 ? null : (Integer) v) : bounded(old + 1));
       case 21:
-        return side -> side.asMap().computeIfAbsent(k, key -> k == 2 ? null : (Integer) v);
+        return side -> side.asMap().computeIfAbsent(k, key -> k.id == 2 ? null : (Integer) v);
       case 22:
-        return side -> side.asMap().computeIfPresent(k, (key, old) -> old + 2);
+        return side -> side.asMap().computeIfPresent(k, (key, old) -> bounded(old + 2));
       case 23:
-        return side -> side.asMap().merge(k, v, Integer::sum);
+        return side -> side.asMap().merge(k, v, (a, b) -> bounded(a + b));
       case 24:
         switch (v % 3) {
           case 0:
             return side -> side.asMap().entrySet().removeIf(e -> e.getValue() % 2 == 0);
           case 1:
-            return side -> side.asMap().keySet().removeIf(key -> key % 3 == 0);
+            return side -> side.asMap().keySet().removeIf(key -> key.id % 3 == 0);
           default:
             return side -> side.asMap().values().removeIf(value -> value % 5 == 1);
         }
@@ -759,9 +882,9 @@ class CacheDifferentialTest {
         };
       case 27:
         return side -> {
-          Iterator<Integer> keys = side.asMap().keySet().iterator();
+          Iterator<Key> keys = side.asMap().keySet().iterator();
           while (keys.hasNext()) {
-            if (keys.next() == k) {
+            if (same(keys.next(), k, config)) {
               keys.remove();
               return "removed through iterator";
             }
@@ -772,8 +895,8 @@ class CacheDifferentialTest {
         return side -> side.asMap().getOrDefault(k, -1);
       case 29:
         return side -> {
-          for (Map.Entry<Integer, Integer> entry : side.asMap().entrySet()) {
-            if (entry.getKey() == k) {
+          for (Map.Entry<Key, Integer> entry : side.asMap().entrySet()) {
+            if (same(entry.getKey(), k, config)) {
               return entry.setValue(v) + " " + entry;
             }
           }
@@ -781,21 +904,31 @@ class CacheDifferentialTest {
         };
       case 30:
         return side -> {
-          side.asMap().replaceAll((key, value) -> value + 1);
+          side.asMap().replaceAll((key, value) -> bounded(value + 1));
           return sortedEntries(side.asMap());
         };
       case 31:
         return side -> {
           // Guava's size and isEmpty count expired entries until cleanup, which equals uses.
           side.cleanUp();
-          Map<Integer, Integer> copy = new HashMap<>(side.asMap());
-          return side.asMap().equals(copy) + "/" + (side.asMap().hashCode() == copy.hashCode())
+          Map<Key, Integer> copy = new HashMap<>(side.asMap());
+          // Under weakKeys, equal twins are distinct keys, which the copy merges in iteration order.
+          int entryHashes = 0;
+          for (Map.Entry<Key, Integer> e : side.asMap().entrySet()) {
+            entryHashes += e.hashCode();
+          }
+          int expectedHash = config.weakKeys ? entryHashes : copy.hashCode();
+          return side.asMap().equals(copy) + "/" + (side.asMap().hashCode() == expectedHash)
               + "/" + side.asMap().isEmpty() + "/" + side.asMap().entrySet().contains(
                   new java.util.AbstractMap.SimpleImmutableEntry<>(k, v));
         };
       case 32:
         return side -> side.asMap().values().contains(v) + "/" + side.asMap().keySet().contains(k)
             + "/" + side.asMap().entrySet().remove(new java.util.AbstractMap.SimpleImmutableEntry<>(k, v));
+      case 33:
+        return side -> side.asMap().keySet().retainAll(Arrays.asList(k, k2));
+      case 34:
+        return side -> side.asMap().values().remove(-(KEYS + 2));
       default:
         return side -> {
           if (side instanceof LavaSide) {

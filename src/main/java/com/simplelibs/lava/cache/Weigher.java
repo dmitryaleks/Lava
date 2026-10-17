@@ -19,6 +19,10 @@ package com.simplelibs.lava.cache;
 /**
  * Calculates the weights of cache entries.
  *
+ * <p><b>Lava:</b> the cache calls the weigher while it is updating its internal state, so a weigher
+ * must not call back into the cache it weighs for (unlike a removal listener, a loader or a compute
+ * function, which may).
+ *
  * @author Charles Fry
  * @since 11.0
  */

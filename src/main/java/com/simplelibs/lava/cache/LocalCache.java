@@ -48,7 +48,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -79,27 +78,43 @@ import java.util.logging.Logger;
  *
  * <ul>
  *   <li>Maintenance (reclaiming collected entries and expiring entries) runs at the start of every
- *       operation instead of on writes and every 64th read, so {@link #size} never counts dead
- *       entries.
+ *       operation instead of on writes and every 64th read, so {@link #size} never counts expired
+ *       entries, nor entries whose references the collector has enqueued. (A reference that has
+ *       been cleared but not yet enqueued is counted until an operation reaches its entry, as in
+ *       Guava.)
  *   <li>Removal notifications are queued while internal state is being changed and delivered, in
  *       order, before user code (a loader or compute function) runs and at the end of each
  *       operation, never while state is half-updated. A listener may call back into the cache.
- *   <li>Where Guava's implementation would block a single thread forever on its own in-flight load
- *       (a re-entrant {@code get} or {@code compute} of a key whose load, compute or refresh is
- *       running on the call stack), Lava throws {@code IllegalStateException("Recursive load of:
- *       ...")}. A {@code get} that finds an asynchronous refresh still pending, and no live value,
- *       loads synchronously instead of waiting; the refresh result is then discarded.
+ *       Guava delivers them before a loader runs too, but runs a compute function first.
+ *   <li>A re-entrant {@code get} of a key whose load is running on the call stack throws {@code
+ *       IllegalStateException("Recursive load of: ...")}, as in Guava. Where Guava would block the
+ *       thread forever, Lava throws the same exception: an {@code asMap().compute*} of a key
+ *       whose load, compute or refresh is running on the call stack, or a {@code get}, from a
+ *       removal listener, of a key that is about to load. A {@code get} that finds an asynchronous refresh
+ *       still pending, and no live value, loads synchronously instead of waiting; the refresh
+ *       result is then discarded.
  *   <li>Guava 27.0.1 leaves an entry stuck in a loading state when a {@code compute} function
  *       throws or when {@code compute} removes an existing entry by returning null (later {@code
- *       get}s then throw {@code InvalidCacheLoadException}). Lava restores or removes the entry.
+ *       get}s then throw {@code InvalidCacheLoadException}). Lava restores or removes the entry,
+ *       and keeps its counts consistent when the function itself removes or replaces the entry.
+ *       As in Guava, a value the function writes for its own key wins over a non-null result and
+ *       is removed by a null one; but when the function returns the old value, Lava keeps the
+ *       written value, which Guava drops without a notification.
  *   <li>Caches are not serializable.
  * </ul>
+ *
+ * <p><b>Performance:</b> creating an iterator over an {@code asMap()} view copies a snapshot of the
+ * table, which costs O(n) even when only the first element is read (entries removed after that are
+ * skipped). Avoid {@code iterator().next()}-style probes of large caches.
  *
  * <p>Like the rest of Lava, this class is not thread-safe.
  */
 final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> {
 
   static final Logger logger = Logger.getLogger(LocalCache.class.getName());
+
+  /** The largest initial table capacity, as in Guava. */
+  static final int MAXIMUM_CAPACITY = 1 << 30;
 
   /** Reference strengths for keys and values. */
   enum Strength {
@@ -140,19 +155,21 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
   final StatsCounter statsCounter;
   final @Nullable CacheLoader<? super K, V> defaultLoader;
 
-  private final HashMap<Object, Node<K, V>> table = new HashMap<>();
+  // The table, the lists and the counters are package-private for CacheTesting's invariant checks.
+
+  final HashMap<Object, Node<K, V>> table;
   private final @Nullable ArrayDeque<RemovalNotification<K, V>> pendingNotifications;
   private boolean flushing;
   private final @Nullable ReferenceQueue<Object> keyReferenceQueue;
   private final @Nullable ReferenceQueue<V> valueReferenceQueue;
-  private final Node<K, V> accessHead = new Node<>(null);
-  private final Node<K, V> writeHead = new Node<>(null);
+  final Node<K, V> accessHead = new Node<>(null);
+  final Node<K, V> writeHead = new Node<>(null);
 
   /** The number of live entries, as Guava's per-segment {@code count}. */
-  private int count;
+  int count;
 
   /** The total weight of the live entries. */
-  private long totalWeight;
+  long totalWeight;
 
   LocalCache(CacheBuilder<? super K, ? super V> builder, @Nullable CacheLoader<? super K, V> loader) {
     keyStrength = builder.getKeyStrength();
@@ -169,6 +186,12 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
     ticker = builder.getTicker(recordsTime());
     statsCounter = builder.getStatsCounterSupplier().get();
     defaultLoader = loader;
+    // As in Guava, initialCapacity sizes the table, but needn't exceed the maximum size.
+    int initialCapacity = Math.min(builder.getInitialCapacity(), MAXIMUM_CAPACITY);
+    if (evictsBySize() && !customWeigher()) {
+      initialCapacity = (int) Math.min(initialCapacity, maxWeight);
+    }
+    table = new HashMap<>(initialCapacity);
     keyReferenceQueue = keyStrength == Strength.STRONG ? null : new ReferenceQueue<>();
     valueReferenceQueue = valueStrength == Strength.STRONG ? null : new ReferenceQueue<>();
     accessHead.prevAccess = accessHead;
@@ -444,7 +467,7 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
     /** True for {@code compute}, whose entry is skipped by eviction and expiration until done. */
     final boolean computing;
 
-    private final long startNanos = System.nanoTime();
+    private long startNanos = System.nanoTime();
 
     LoadingValue(ValueRef<V> oldValue, boolean computing) {
       this.oldValue = oldValue;
@@ -474,6 +497,14 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
     /** The old value was removed while loading: the entry now loads as if absent. */
     void clearOldValue() {
       oldValue = unset();
+    }
+
+    /**
+     * Starts timing the load once the pending notifications have been delivered, so that listener
+     * time is not counted as load time (Guava starts its stopwatch at the same point).
+     */
+    void startClock() {
+      startNanos = System.nanoTime();
     }
 
     long elapsedNanos() {
@@ -871,6 +902,7 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
         if (value == null) {
           enqueueNotification(node.getKey(), null, current.getWeight(), RemovalCause.COLLECTED);
         } else if (isExpired(node, now)) {
+          // unreachable after the maintenance that started this operation; Guava has the same check
           enqueueNotification(node.getKey(), value, current.getWeight(), RemovalCause.EXPIRED);
         } else {
           recordRead(node, now);
@@ -909,6 +941,7 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
       K key, LoadingValue<V> loading, CacheLoader<? super K, V> loader) {
     loading.running = true;
     flushNotifications();
+    loading.startClock();
     try {
       V previousValue = loading.oldValue.get();
       if (previousValue == null) {
@@ -929,6 +962,7 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
   private V getAndRecordStats(K key, LoadingValue<V> loading, Future<V> newValue)
       throws ExecutionException {
     V value = null;
+    boolean stored = false;
     try {
       value = getUninterruptibly(newValue);
       if (value == null) {
@@ -936,10 +970,14 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
       }
       statsCounter.recordLoadSuccess(loading.elapsedNanos());
       storeLoadedValue(key, loading, value);
+      stored = true;
       return value;
     } finally {
       if (value == null) {
         statsCounter.recordLoadException(loading.elapsedNanos());
+        removeLoadingValue(key, loading);
+      } else if (!stored) {
+        // Lava: the weigher threw; Guava 27.0.1 leaves the entry loading forever.
         removeLoadingValue(key, loading);
       }
     }
@@ -963,10 +1001,9 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
     }
   }
 
-  private boolean storeLoadedValue(K key, LoadingValue<V> loading, V newValue) {
+  private void storeLoadedValue(K key, LoadingValue<V> loading, V newValue) {
     long now = ticker.read();
     runMaintenance(now);
-    int weight = weigh(key, newValue);
     int newCount = count + 1;
     Node<K, V> node = getEntry(key);
     if (node != null) {
@@ -974,39 +1011,41 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
       V entryValue = ref.get();
       // replace the loading value if it is still in place, otherwise perform a putIfAbsent
       if (loading == ref || (entryValue == null && ref != UNSET)) {
-        if (loading.isActive()) {
+        int weight = weigh(key, newValue);
+        // Lava: account for the reference in the entry, which is not this load's when the load is
+        // stale (Guava 27.0.1 uses this load's, and miscounts).
+        if (ref.isActive()) {
           RemovalCause cause = (entryValue == null) ? RemovalCause.COLLECTED : RemovalCause.REPLACED;
-          enqueueNotification(key, entryValue, loading.getWeight(), cause);
+          enqueueNotification(key, entryValue, ref.getWeight(), cause);
           newCount--;
         }
         setValue(node, newValue, weight, now);
         count = newCount;
         evictEntries(node);
-        return true;
+        return;
       }
       // the loaded value was already clobbered
       enqueueNotification(key, newValue, 0, RemovalCause.REPLACED);
-      return false;
+      return;
     }
+    int weight = weigh(key, newValue);
     node = newNode(key);
     setValue(node, newValue, weight, now);
     table.put(node.mapKey, node);
     count = newCount;
     evictEntries(node);
-    return true;
   }
 
-  private boolean removeLoadingValue(K key, LoadingValue<V> loading) {
+  private void removeLoadingValue(K key, LoadingValue<V> loading) {
     Node<K, V> node = getEntry(key);
     if (node == null || node.valueRef != loading) {
-      return false;
+      return;
     }
     if (loading.isActive()) {
       node.valueRef = loading.oldValue;
     } else {
       table.remove(node.mapKey);
     }
-    return true;
   }
 
   // Refresh
@@ -1171,11 +1210,11 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
       throws ExecutionException {
     checkNotNull(loader);
     checkNotNull(keys);
-    long start = System.nanoTime();
+    flushNotifications();
+    long start = System.nanoTime(); // after the listeners, as in Guava
     Map<K, V> result;
     boolean success = false;
     try {
-      flushNotifications();
       @SuppressWarnings("unchecked") // safe since all keys extend K
       Map<K, V> map = (Map<K, V>) loader.loadAll(keys);
       result = map;
@@ -1547,12 +1586,14 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
       V newValue;
       loading.running = true;
       flushNotifications();
+      loading.startClock();
       try {
         newValue = function.apply(key, loading.get());
       } catch (Throwable t) {
-        // Lava: restore the entry (Guava 27.0.1 leaves it stuck in a loading state).
+        // Lava: restore the entry (Guava 27.0.1 leaves it stuck in a loading state), unless the
+        // function removed it, which already cleared the old value and updated the counts.
         if (node.valueRef == loading && isLinked(node)) {
-          if (createNewEntry) {
+          if (createNewEntry || !loading.isActive()) {
             table.remove(node.mapKey);
           } else {
             node.valueRef = valueReference;
@@ -1565,6 +1606,7 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
       if (newValue != null) {
         if (valueReference != null
             && newValue == valueReference.get()
+            && loading.oldValue == valueReference // not removed by the function
             && node.valueRef == loading
             && isLinked(node)) {
           node.valueRef = valueReference;
@@ -1580,11 +1622,13 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
         removeLoadingValue(key, loading);
         return null;
       } else {
-        // Lava: remove the entry (Guava 27.0.1 leaves a loading entry behind).
-        if (node.valueRef == loading && isLinked(node)) {
-          if (loading.isActive()) {
+        // Lava: remove the entry (Guava 27.0.1 leaves a loading entry behind). As in Guava, this
+        // also removes a value that the function itself wrote for the key.
+        if (isLinked(node)) {
+          ValueRef<V> current = node.valueRef;
+          if (current.isActive()) {
             enqueueNotification(
-                node.getKey(), loading.get(), loading.getWeight(), RemovalCause.EXPLICIT);
+                node.getKey(), current.get(), current.getWeight(), RemovalCause.EXPLICIT);
             count--;
           }
           unlinkWrite(node);

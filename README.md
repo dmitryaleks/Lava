@@ -48,9 +48,13 @@ Beyond the imports:
 - **`ImmutableSetMultimap.Builder.orderValuesBy`** collapses values that compare equal, as Guava does, but yields ordered `ImmutableSet`s rather than `ImmutableSortedSet`s, so `contains` uses `equals`.
 - **`Lists.partition`** returns correct sublists for lists of more than 2<sup>30</sup> elements, where Guava 27.0.1's `int` arithmetic overflows.
 - **Caches**:
-  - Expired and collected entries are removed at the start of every operation, so `size()` never counts them. Removal notifications are delivered on the calling thread, before a loader runs and at the end of each operation.
-  - A loader or compute function that requests its own key gets `IllegalStateException("Recursive load of: ...")`; Guava would block or fail.
-  - `asMap().compute*` that throws, or that removes an existing entry by returning null, leaves the cache consistent. In Guava 27.0.1 the entry is left stuck loading.
+  - Expired entries, and entries whose references the collector has enqueued, are removed at the start of every operation, so `size()` never counts them.
+  - Removal notifications are delivered on the calling thread at the end of each operation and before a loader runs, as in Guava, and also before an `asMap().compute*` function runs.
+  - A `get` of a key whose load is running on the call stack throws `IllegalStateException("Recursive load of: ...")`, as in Guava. Lava throws the same exception where Guava would hang: an `asMap().compute*` of such a key, or a `get` of the key about to load from a removal listener.
+  - `asMap().compute*` that throws, or that removes an existing entry by returning null, leaves the cache consistent, and so does a weigher that throws for a loaded value. In Guava 27.0.1 the entry is left stuck loading.
+  - When a compute function itself writes or removes its key, the counts stay right. As in Guava, the written value wins over a non-null result and is removed by a null one; if the function returns the old value, Lava keeps the written value, which Guava drops without a notification.
+  - Weighers must not call back into the cache.
+  - **Performance:** creating an `asMap()` iterator copies a snapshot of the table, which costs O(n) even if only the first element is read. Avoid `iterator().next()` probes of large caches.
   - Caches are not serializable.
 - **Event bus**: errors found while discovering `@Subscribe` methods are thrown directly. A wrong-arity method gives `IllegalArgumentException`, and a missing class gives `NoClassDefFoundError`; Guava wraps these in `UncheckedExecutionException` and `ExecutionError`.
 - **Names**: logger names and `toString`s that embed class names (`Enums.stringConverter(<class>.class)`) use the `com.simplelibs.lava` packages.
@@ -79,7 +83,7 @@ Guava 27.0.1 is a *test-only* dependency, used as an oracle:
 - **`*DifferentialTest` and `*FuzzTest`** run seeded random operation sequences against Lava and Guava side by side, comparing results, exception messages and state.
 - **Ported Guava tests and contract suites.** Guava's own tests are ported to JUnit 5 and AssertJ. The contract suites (`MapInterfaceTest`, `ListIteratorTester`, the list and collection contracts) stand in for guava-testlib.
 
-Longer fuzz runs: set `LAVA_CACHE_FUZZ_SEEDS=400` (the default is 10) for `CacheDifferentialTest`. Set `LAVA_CACHE_FUZZ_TRACE=<seed>:<round>` to print one round step by step. Tests tagged `gc` depend on the garbage collector.
+Longer fuzz runs: set `LAVA_CACHE_FUZZ_SEEDS=400` (the default is 40, each seed running 25 random configurations) for `CacheDifferentialTest` and `CacheReentrancyFuzzTest`. Set `LAVA_CACHE_FUZZ_TRACE=<seed>:<round>` to print one round step by step. Tests tagged `gc` depend on the garbage collector.
 
 `PLAN.md` describes the design and `REVIEW.md` records the adversarial review of each milestone.
 

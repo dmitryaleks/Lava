@@ -31,7 +31,6 @@ import java.util.ConcurrentModificationException;
 import java.util.IdentityHashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -93,7 +92,8 @@ import java.util.logging.Logger;
  * interfaces. The {@code asMap} view (and its collection views) have <i>weakly consistent
  * iterators</i>: if the cache is modified after an iterator is created, it is undefined which of
  * these changes, if any, are reflected in that iterator. These iterators never throw {@link
- * ConcurrentModificationException}.
+ * ConcurrentModificationException}. (Lava: creating one copies a snapshot of the table, which
+ * costs O(n) even when only the first element is read.)
  *
  * <p><b>Lava:</b> caches are single-threaded and must be confined to one thread. Eviction is an
  * exact least-recently-used order over the whole cache (what Guava gives with {@code
@@ -137,9 +137,8 @@ import java.util.logging.Logger;
  * {@linkplain #expireAfterAccess expireAfterAccess}, {@linkplain #weakKeys weakKeys}, {@linkplain
  * #weakValues weakValues}, or {@linkplain #softValues softValues} perform periodic maintenance.
  *
- * <p>The caches produced by {@code CacheBuilder} are serializable, and the deserialized caches
- * retain all the configuration properties of the original cache. Note that the serialized form does
- * <i>not</i> include cache contents, but only configuration.
+ * <p><b>Lava:</b> the caches produced by {@code CacheBuilder} are not serializable. (Guava's
+ * serialize their configuration, but not their contents.)
  *
  * <p>See the Guava User Guide article on <a
  * href="https://github.com/google/guava/wiki/CachesExplained">caching</a> for a higher-level
@@ -157,7 +156,6 @@ import java.util.logging.Logger;
  */
 public final class CacheBuilder<K, V> {
   private static final int DEFAULT_INITIAL_CAPACITY = 16;
-  private static final int DEFAULT_CONCURRENCY_LEVEL = 4;
   private static final int DEFAULT_EXPIRATION_NANOS = 0;
   private static final int DEFAULT_REFRESH_NANOS = 0;
 
@@ -328,8 +326,11 @@ public final class CacheBuilder<K, V> {
   }
 
   /**
-   * Sets the minimum total size for the internal hash table. Lava validates the value as Guava does
-   * but does not otherwise use it.
+   * Sets the minimum total size for the internal hash table: the table starts with at least this
+   * many slots, and grows, like a {@link java.util.HashMap}, when three quarters of them are used.
+   * Providing a large enough estimate at construction time avoids the need for expensive resizing
+   * operations later, but setting this value unnecessarily high wastes memory. As in Guava, a
+   * cache bounded by {@link #maximumSize} never starts with more slots than that maximum.
    *
    * @return this {@code CacheBuilder} instance (for chaining)
    * @throws IllegalArgumentException if {@code initialCapacity} is negative
@@ -369,10 +370,6 @@ public final class CacheBuilder<K, V> {
     checkArgument(concurrencyLevel > 0);
     this.concurrencyLevel = concurrencyLevel;
     return this;
-  }
-
-  int getConcurrencyLevel() {
-    return (concurrencyLevel == UNSET_INT) ? DEFAULT_CONCURRENCY_LEVEL : concurrencyLevel;
   }
 
   /**

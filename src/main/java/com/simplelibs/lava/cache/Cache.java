@@ -74,13 +74,12 @@ public interface Cache<K, V> {
    * </ul>
    *
    * <p><b>Warning:</b> For any given key, every {@code loader} used with it should compute the same
-   * value. Otherwise, a call that passes one {@code loader} may return the result of another call
-   * with a differently behaving {@code loader}. For example, a call that requests a short timeout
-   * for an RPC may wait for a similar call that requests a long timeout, or a call by an
-   * unprivileged user may return a resource accessible only to a privileged user making a similar
-   * call. To prevent this problem, create a key object that includes all values that affect the
-   * result of the query. Or use {@code LoadingCache.get(K)}, which lacks the ability to refer to
-   * state other than that in the key.
+   * value. Otherwise, a call that passes one {@code loader} may return the value that an earlier
+   * call cached with a differently behaving {@code loader}. For example, a call by an unprivileged
+   * user may return a resource that a similar call by a privileged user loaded. To prevent this
+   * problem, create a key object that includes all values that affect the result of the query. Or
+   * use {@code LoadingCache.get(K)}, which lacks the ability to refer to state other than that in
+   * the key.
    *
    * <p><b>Warning:</b> as with {@link CacheLoader#load}, {@code loader} <b>must not</b> return
    * {@code null}; it may either return a non-null value or throw an exception.

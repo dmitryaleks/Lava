@@ -188,3 +188,56 @@ Review method:
 - snapshot copy styles;
 - `isSynthetic` versus `isBridge`;
 - lock removal, which has no effect on one thread.
+
+## Milestone 7 — cache (commit `a8e4c57`)
+
+Review method:
+- an independent reflection diff of the 21 cache types;
+- a differential fuzz against Guava 27.0.1 (`concurrencyLevel(1)`) of about 4.8M operations, comparing notifications in exact order and covering weak and soft references and hash-colliding keys;
+- a reflective checker of `LocalCache`'s internal invariants, with a shrinking re-entrancy fuzz;
+- 6,000 random `CacheBuilder`/`from(spec)` sequences and a null-argument sweep, compared with Guava;
+- 249 mutants: 202 killed, 47 survived.
+
+**Public API and normal-path behaviour match Guava.** Two real state-corruption bugs turned up (F1, F2), both on re-entrant or asynchronous paths. The suite could not see them because it never looked at internal state (F3).
+
+| # | Sev | Finding | Verdict | Resolution |
+|---|-----|---------|---------|------------|
+| F1 | M | A compute function that removes its own entry and then throws, or returns the old value, got the entry restored without its counts. `size()` and the total weight went wrong, and the restored entry was in neither list, so it never expired or was evicted. On throw this was a regression against Guava. | Accepted | Both paths now check whether the function removed the entry. Repros in `CacheReviewTest`, compared with Guava where Guava is consistent. |
+| F2 | M | A stale asynchronous refresh completing over an entry whose newer refresh had lost its value accounted with its own (live) old reference. It decremented the count again and emitted a spurious `COLLECTED` and an eviction. The result was an entry that `size()` did not count and `invalidateAll()` could not remove. | Accepted | `storeLoadedValue` accounts with the entry's current reference. The stale load still fills the empty entry, as in Guava, whose `invalidate` does not cancel in-flight loads either. |
+| F3 | M | Nothing could see internal-state corruption. `checkValidState` compared views only. The differential fuzz excluded the F1 and F2 paths, sorted notifications although PLAN promises their order, and ran 250 sequences against PLAN's 1k+. | Accepted | See below. |
+| F4 | m | `totalLoadTime` included the time removal listeners spent before a load, compute or `loadAll`. | Accepted | The clock starts after the notifications are delivered, as Guava's stopwatch does. |
+| F5 | m | A weigher that throws for a loaded value left the entry loading forever. `clear()` could not remove it either: it skips work when the count is 0. | Accepted | The load is removed, or its old value restored. The weigher now also runs before anything is changed. |
+| F6 | m | The weigher must not call back into the cache, which was undocumented. | Accepted | Documented on `Weigher` and in the package docs. Guava has the same hazard. |
+| F7 | m | Docs contradicted behaviour. `CacheBuilder` claimed caches are serializable. "Guava would block forever" was claimed for a recursive `get`, but Guava throws the same `IllegalStateException`. "Notifications before loaders" was listed as a difference, though Guava does it too. Stale multi-thread wording remained in `Cache` and `StatsCounter`. | Accepted | All rewritten. Probes against Guava confirmed the corrected claims: Guava throws for a recursive `get`, delivers before loaders, and hangs on a compute of a loading key and on a listener's `get` of the key about to load. |
+| F8 | m | 47 survivors, about 30 behaviour-changing, among them FIFO delivery, the flush before a compute function and after an asynchronous refresh, identity comparison of weak and soft values, messages, `build()` validation, computing entries skipped by eviction, expiry and recency, iterator `remove` by key, and the null checks. | Accepted | `CacheReviewTest` has a test for each, compared with Guava where Guava agrees. The equivalent survivors are listed below. |
+| F9 | m | Ported tests lost Guava's stale-reference sub-cases of `testReclaimKey/Value`, and its bulk eviction in one call. | Accepted | A stale value reference of a live entry and of a removed entry removes nothing. One write evicts 1,000 entries in the same order as Guava. |
+| F10 | m | Every `asMap()` iterator and `containsValue` copies the table: about 8 ms per `iterator().next()` at 200k entries, against 0.4 ms in Guava. | Deferred (documented) | The snapshot is what keeps iteration safe when listeners and other hooks change the cache. Full iteration is O(n) anyway. Documented as a performance cost in `CacheBuilder`, `LocalCache`, the package docs and the README. Reviewer conceded. |
+| F11 | n | Dead code: `getConcurrencyLevel`, unused imports, unused return values, `CacheTesting.drainReferenceQueues`, an unreachable `isExpired` branch. | Accepted in part | Removed. `getInitialCapacity` now sizes the table as in Guava. The unreachable branch stays, with a comment, as Guava's defensive check. `FakeTicker.advance(Duration)` stays. Reviewer conceded. |
+| F12 | n | `clear()` delivers notifications in table order, and a clobbered load called the weigher once too often. | Accepted in part | The weigher now runs only for stored values, as in Guava. `clear()` order is unspecified in both libraries. Reviewer conceded. |
+
+**F3 fixes, the new test harness.**
+- `CacheTesting.invariantViolations` checks `count` and the total weight against the table, both lists against the live entries, key and value back-references, and that no entry is left loading. `checkValidState` now runs it.
+- `CacheDifferentialTest` is rebuilt:
+  - keys collide in threes and have equal twins (distinct under `weakKeys`);
+  - configurations include weak keys and weak or soft values, kept strongly reachable;
+  - one weight exceeds every maximum;
+  - invariants are checked after every operation, and notifications are compared in exact order on untimed configurations unless an operation since the last comparison worked in iteration order;
+  - the default run is 1,000 sequences of 80 operations.
+- The new `CacheReentrancyFuzzTest` runs 1,000 scenarios in which listeners, loaders, bulk loaders, `Callable`s, compute functions and iterations call back into the cache two levels deep, or throw. It checks invariants and size against iteration after every step.
+
+**Negotiation.** The reviewer conceded six of seven disputed points: F10, the F11 leftovers, the `clear()` order, the count-0 shortcut in `clear()` (Guava parity, and nothing can hide behind it now), a compute function seeing null after a listener removed its key, and the `UNSET` guard. It disputed one Lava choice, and we adopted its view. When a compute function writes its own key and then returns null, Lava had kept the written value. Guava removes it, as `Map.compute` implies, and Lava now does the same. Lava still differs where the function writes its key and then returns the old value: Lava keeps the written value, while Guava drops it without a notification.
+
+**Equivalent survivors:**
+- an enqueued key reference is cleared and equal only to itself;
+- branches unreachable after eager maintenance;
+- `size()` saturating, which needs 2<sup>31</sup> entries;
+- the count-0 shortcut and the queue clearing in `clear()`;
+- a no-op mutant;
+- a back-link cleared after its forward link;
+- the removed return values;
+- null checks on paths that check again.
+
+**Verification.**
+- **Reviewer, on the fixed tree:** its own fuzzers found no differences from Guava over 400 seeds × 40 rounds, and no invariant violations in 60,000 re-entrancy scenarios (105 per 10,000 before the fixes). Its repros now give the right sizes, weights and notifications.
+- **Mutants:** 31 of 37 targeted mutants were re-run before the run was stopped. These were the reviewer's survivors plus reverts of each fix, and 29 were killed. The two survivors, the stale value-reference guard and `reload`'s key check, were weaknesses in the new tests, which were then tightened.
+- **Long fuzz runs:** `LAVA_CACHE_FUZZ_SEEDS=400` ran 10,000 differential sequences and 10,000 re-entrancy scenarios with no failures.

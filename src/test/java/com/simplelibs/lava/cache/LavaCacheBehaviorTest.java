@@ -434,7 +434,8 @@ class LavaCacheBehaviorTest {
   }
 
   @Test
-  void notificationsAreDeliveredBeforeTheLoaderRuns() {
+  void notificationsAreDeliveredBeforeTheLoaderRunsAsInGuava() {
+    // (Guava does this for loaders too, but not for compute functions; see CacheReviewTest.)
     List<String> log = new ArrayList<>();
     FakeTicker ticker = new FakeTicker();
     LoadingCache<String, String> cache =

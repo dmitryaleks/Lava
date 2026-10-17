@@ -141,11 +141,8 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
 
     /**
      * Records cache misses. This should be called when a cache request returns a value that was not
-     * found in the cache. This method should be called by the loading thread, as well as by threads
-     * blocking on the load. Multiple concurrent calls to {@link Cache} lookup methods with the same
-     * key on an absent value should result in a single call to either {@code recordLoadSuccess} or
-     * {@code recordLoadException} and multiple calls to this method, despite all being served by
-     * the results of a single load operation.
+     * found in the cache. Every request that misses is recorded here, while the load it causes is
+     * recorded once, by {@code recordLoadSuccess} or {@code recordLoadException}.
      *
      * @param count the number of misses to record
      * @since 11.0
@@ -155,7 +152,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
     /**
      * Records the successful load of a new entry. This should be called when a cache request causes
      * an entry to be loaded, and the loading completes successfully. In contrast to {@link
-     * #recordMisses}, this method should only be called by the loading thread.
+     * #recordMisses}, this method is called once per load.
      *
      * @param loadTime the number of nanoseconds the cache spent computing or retrieving the new
      *     value
@@ -165,7 +162,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
     /**
      * Records the failed load of a new entry. This should be called when a cache request causes an
      * entry to be loaded, but an exception is thrown while loading the entry. In contrast to {@link
-     * #recordMisses}, this method should only be called by the loading thread.
+     * #recordMisses}, this method is called once per load.
      *
      * @param loadTime the number of nanoseconds the cache spent computing or retrieving the new
      *     value prior to an exception being thrown
@@ -180,8 +177,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
     void recordEviction();
 
     /**
-     * Returns a snapshot of this counter's values. Note that this may be an inconsistent view, as
-     * it may be interleaved with update operations.
+     * Returns a snapshot of this counter's values.
      */
     CacheStats snapshot();
   }

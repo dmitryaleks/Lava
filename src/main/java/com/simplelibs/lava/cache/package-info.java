@@ -40,18 +40,28 @@
  *   <li>Eviction is exact least-recently-used over the whole cache, as with Guava's {@code
  *       concurrencyLevel(1)}; {@code concurrencyLevel} is validated but has no effect.
  *   <li>Expired and garbage-collected entries are removed at the start of every operation instead
- *       of on writes and every 64th read, so {@code size()} never counts them. Removal
- *       notifications are delivered on the calling thread before a loader or compute function
- *       runs and at the end of each operation.
- *   <li>Where Guava's implementation would block forever on the thread's own in-flight load (a
- *       {@code get} or {@code asMap().compute} of a key whose load or compute is running on the
- *       call stack), Lava throws {@code IllegalStateException("Recursive load of: ...")}. A read
- *       that finds an asynchronous refresh still pending and no live value loads synchronously
- *       instead of waiting.
+ *       of on writes and every 64th read, so {@code size()} never counts expired entries or
+ *       entries whose references the collector has enqueued. (Until it is enqueued, a reference
+ *       that the collector cleared is counted, as in Guava.) Removal notifications are delivered
+ *       on the calling thread at the end of each operation and before a loader runs, as in Guava,
+ *       and also before an {@code asMap().compute*} function runs.
+ *   <li>A {@code get} of a key whose load is running on the call stack throws {@code
+ *       IllegalStateException("Recursive load of: ...")}, as in Guava. Lava throws the same
+ *       exception where Guava would block forever: an {@code asMap().compute*} of a key whose
+ *       load, compute or refresh is running on the call stack, or a {@code get}, from a removal
+ *       listener, of a key that is about to load. A read that finds an asynchronous refresh still pending
+ *       and no live value loads synchronously instead of waiting.
  *   <li>Guava 27.0.1 leaves an entry stuck in a loading state when an {@code asMap().compute*}
  *       function throws, or when {@code compute} removes an existing entry by returning null (a
- *       later {@code get} then throws {@code InvalidCacheLoadException}). Lava restores or removes
- *       the entry.
+ *       later {@code get} then throws {@code InvalidCacheLoadException}), or when the weigher
+ *       throws for a loaded value. Lava restores or removes the entry, and keeps its counts
+ *       consistent when a compute function removes or replaces its own entry. When the function
+ *       writes its own key and then returns the old value, Lava keeps the written value, which
+ *       Guava drops without a notification.
+ *   <li>Weighers must not call back into the cache; Guava has the same hazard but does not say so
+ *       (see {@link com.simplelibs.lava.cache.Weigher}).
+ *   <li>Iterators of {@code asMap()} views copy a snapshot of the table when they are created,
+ *       so creating one costs O(n) even when only its first element is read.
  *   <li>Caches are not serializable (Guava serializes only their configuration).
  *   <li>Logger names start with {@code com.simplelibs.lava.cache}.
  * </ul>

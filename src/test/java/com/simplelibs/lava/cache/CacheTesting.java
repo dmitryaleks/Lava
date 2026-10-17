@@ -32,8 +32,10 @@ import com.simplelibs.lava.collect.ImmutableSet;
 import com.simplelibs.lava.testing.EqualsTester;
 import com.simplelibs.lava.testing.FakeTicker;
 import java.lang.ref.Reference;
-import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -45,9 +47,9 @@ import java.util.concurrent.TimeUnit;
 /**
  * A collection of utilities for {@link Cache} testing.
  *
- * <p>Lava: only the black-box parts of Guava's {@code CacheTesting}. Lava's {@code LocalCache} has
- * no segments, recency queues, expiration queues or deferred cleanup, so the helpers that poked
- * into those are gone, and the consistency checks go through the public views of the cache.
+ * <p>Lava: Lava's {@code LocalCache} has no segments, recency queues, expiration queues or deferred
+ * cleanup, so the helpers that poked into those are gone. The consistency checks go through the
+ * public views of the cache, plus {@link #invariantViolations} for its counts and lists.
  *
  * @author mike nonemacher
  */
@@ -120,15 +122,117 @@ class CacheTesting {
     throw new IllegalStateException("no entry for " + key);
   }
 
-  @SuppressWarnings("unchecked")
   private static <K, V> Collection<LocalCache.Node<K, V>> nodes(LocalCache<K, V> map) {
-    try {
-      Field table = LocalCache.class.getDeclaredField("table");
-      table.setAccessible(true);
-      return ((Map<Object, LocalCache.Node<K, V>>) table.get(map)).values();
-    } catch (ReflectiveOperationException e) {
-      throw new AssertionError(e);
+    return map.table.values();
+  }
+
+  /**
+   * Lava: returns the violations of {@code LocalCache}'s internal invariants, which the public
+   * views cannot see:
+   *
+   * <ul>
+   *   <li>{@code count} and {@code totalWeight} equal the number and the total weight of the
+   *       entries whose value reference is active (a live value, or a load over one);
+   *   <li>the access and write lists are well formed and hold exactly those entries;
+   *   <li>every table key is its entry's own key reference, every weak or soft value refers back
+   *       to its entry, and no entry is left without a value or a load;
+   *   <li>with {@code idle} (no operation on the call stack and no refresh pending), no load is in
+   *       flight and the total weight is within the maximum.
+   * </ul>
+   */
+  static List<String> invariantViolations(LocalCache<?, ?> map, boolean idle) {
+    return checkInvariants(map, idle);
+  }
+
+  private static <K, V> List<String> checkInvariants(LocalCache<K, V> map, boolean idle) {
+    List<String> violations = new ArrayList<>();
+    Set<LocalCache.Node<K, V>> active = Collections.newSetFromMap(new IdentityHashMap<>());
+    long weight = 0;
+    for (Map.Entry<Object, LocalCache.Node<K, V>> e : map.table.entrySet()) {
+      LocalCache.Node<K, V> node = e.getValue();
+      LocalCache.ValueRef<V> ref = node.valueRef;
+      if (e.getKey() != node.mapKey) {
+        violations.add("table key is not the entry's key reference: " + node.getKey());
+      }
+      if (ref.getWeight() < 0) {
+        violations.add("negative weight for " + node.getKey());
+      }
+      LocalCache.ValueRef<V> valueRef =
+          ref.isLoading() ? ((LocalCache.LoadingValue<V>) ref).oldValue : ref;
+      if (valueRef instanceof LocalCache.WeakValue
+              && ((LocalCache.WeakValue<K, V>) valueRef).node != node
+          || valueRef instanceof LocalCache.SoftValue
+              && ((LocalCache.SoftValue<K, V>) valueRef).node != node) {
+        violations.add("value reference of another entry for " + node.getKey());
+      }
+      if (ref.isActive()) {
+        active.add(node);
+        weight += ref.getWeight();
+      } else if (!ref.isLoading()) {
+        violations.add("entry with neither a value nor a load: " + node.getKey());
+      }
+      if (ref.isLoading() && idle) {
+        violations.add("load in flight while idle: " + node.getKey());
+      }
     }
+    if (map.count != active.size()) {
+      violations.add("count is " + map.count + " but " + active.size() + " entries are active");
+    }
+    if (map.totalWeight != weight) {
+      violations.add("totalWeight is " + map.totalWeight + " but active entries weigh " + weight);
+    }
+    List<LocalCache.Node<K, V>> accessOrder = walk(map.accessHead, true, violations);
+    List<LocalCache.Node<K, V>> writeOrder = walk(map.writeHead, false, violations);
+    checkList("access", accessOrder, active, violations);
+    checkList("write", writeOrder, active, violations);
+    if (idle && map.evictsBySize() && map.totalWeight > map.maxWeight) {
+      violations.add("totalWeight " + map.totalWeight + " exceeds the maximum " + map.maxWeight);
+    }
+    return violations;
+  }
+
+  private static <K, V> List<LocalCache.Node<K, V>> walk(
+      LocalCache.Node<K, V> head, boolean access, List<String> violations) {
+    List<LocalCache.Node<K, V>> nodes = new ArrayList<>();
+    LocalCache.Node<K, V> previous = head;
+    LocalCache.Node<K, V> node = access ? head.nextAccess : head.nextWrite;
+    while (node != head) {
+      if (node == null || nodes.size() > 1_000_000) {
+        violations.add((access ? "access" : "write") + " list is broken");
+        return nodes;
+      }
+      if ((access ? node.prevAccess : node.prevWrite) != previous) {
+        violations.add((access ? "access" : "write") + " list has a wrong back link");
+      }
+      nodes.add(node);
+      previous = node;
+      node = access ? node.nextAccess : node.nextWrite;
+    }
+    if ((access ? head.prevAccess : head.prevWrite) != previous) {
+      violations.add((access ? "access" : "write") + " list has a wrong tail");
+    }
+    return nodes;
+  }
+
+  private static <K, V> void checkList(
+      String name,
+      List<LocalCache.Node<K, V>> list,
+      Set<LocalCache.Node<K, V>> active,
+      List<String> violations) {
+    Set<LocalCache.Node<K, V>> members = Collections.newSetFromMap(new IdentityHashMap<>());
+    members.addAll(list);
+    if (members.size() != list.size()) {
+      violations.add(name + " list holds an entry twice");
+    }
+    if (!members.equals(active)) {
+      violations.add(name + " list holds " + list.size() + " entries but " + active.size()
+          + " are active");
+    }
+  }
+
+  /** Asserts that {@link #invariantViolations} finds nothing. */
+  static void checkInvariants(Cache<?, ?> cache, boolean idle) {
+    assertThat(invariantViolations(toLocalCache(cache), idle)).isEmpty();
   }
 
   /**
@@ -152,19 +256,9 @@ class CacheTesting {
   }
 
   /**
-   * Lava: reclaims the entries whose references were collected (Lava does this at the start of
-   * every operation, so {@code cleanUp()} is all it takes) and delivers their notifications.
-   */
-  static void drainReferenceQueues(Cache<?, ?> cache) {
-    if (hasLocalCache(cache)) {
-      cache.cleanUp();
-    }
-  }
-
-  /**
-   * Peeks into the cache's views to check its internal consistency: after a clean-up, the size
-   * agrees with the entry, key and value views, and every entry has a non-null key and value that
-   * the cache reports as present.
+   * Checks the cache's internal consistency: after a clean-up, the {@linkplain #invariantViolations
+   * internal invariants} hold, the size agrees with the entry, key and value views, and every entry
+   * has a non-null key and value that the cache reports as present.
    */
   static void checkValidState(Cache<?, ?> cache) {
     if (hasLocalCache(cache)) {
@@ -174,6 +268,7 @@ class CacheTesting {
 
   static void checkValidState(LocalCache<?, ?> cchm) {
     cchm.cleanUp();
+    assertThat(invariantViolations(cchm, false)).isEmpty();
     int entries = 0;
     for (Entry<?, ?> entry : cchm.entrySet()) {
       assertNotNull(entry.getKey());

@@ -544,9 +544,10 @@ Public types are ported one-to-one with exact signatures, per `guava/src/com/goo
   wraps it in `UncheckedExecutionException` (Errors from method discovery likewise propagate raw).
 - Added during implementation (see README and REVIEW.md): `ImmutableSetMultimap.Builder.orderValuesBy`
   yields ordered `ImmutableSet`s (comparator-equal values collapse as in Guava); `Lists.partition` fixes
-  Guava's overflow for huge lists; caches run maintenance eagerly, deliver notifications before loaders
-  run, throw `IllegalStateException("Recursive load of: ...")` where Guava would block a single thread,
-  and fix Guava 27.0.1's stuck loading entries after a throwing compute or a compute returning null.
+  Guava's overflow for huge lists; caches run maintenance eagerly, deliver notifications before compute
+  functions run (Guava already does before loaders), throw `IllegalStateException("Recursive load of: ...")`
+  where Guava would block a single thread (as Guava itself does for a recursive `get`), and fix Guava
+  27.0.1's stuck loading entries after a throwing compute, a compute returning null or a throwing weigher.
 - Logger names and `toString` strings that embed class names (`Enums.stringConverter(<fqcn>.class)`)
   carry the `com.simplelibs.lava` package.
 - Lava's serialized forms are not wire-compatible with Guava's.

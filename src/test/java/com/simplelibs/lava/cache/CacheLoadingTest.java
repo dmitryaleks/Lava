@@ -41,7 +41,6 @@ import com.simplelibs.lava.util.concurrent.ExecutionError;
 import com.simplelibs.lava.util.concurrent.Futures;
 import com.simplelibs.lava.util.concurrent.ListenableFuture;
 import com.simplelibs.lava.util.concurrent.UncheckedExecutionException;
-import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.List;
 import java.util.Map;
@@ -2112,8 +2111,8 @@ public class CacheLoadingTest extends LavaTestCase {
 
   @Test
   public void testRecursiveLoad() {
-    // Lava: a load of a key that is already being loaded on this thread would block forever in
-    // Guava (it waits for itself); Lava fails fast. Loads of other keys can nest.
+    // A load of a key that is already being loaded on this thread fails fast, as in Guava (which
+    // checks that the thread does not hold the entry's lock). Loads of other keys can nest.
     final AtomicReference<LoadingCache<String, String>> cacheRef = new AtomicReference<>();
     CacheLoader<String, String> loader =
         new CacheLoader<String, String>() {
