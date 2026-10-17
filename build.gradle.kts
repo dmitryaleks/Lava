@@ -33,7 +33,10 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 tasks.compileJava {
-    options.compilerArgs.addAll(listOf("-Xlint:all", "-Werror"))
+    // Guava-derived code systematically triggers these four categories (internal serializable
+    // classes without serialVersionUID, overridable generic varargs, raw types in reflection-based
+    // serialization); every other lint category is an error.
+    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-serial", "-Xlint:-rawtypes", "-Xlint:-unchecked", "-Xlint:-varargs", "-Werror"))
 }
 
 tasks.compileTestJava {
@@ -86,7 +89,7 @@ tasks.jacocoTestCoverageVerification {
             limit {
                 counter = "BRANCH"
                 value = "COVEREDRATIO"
-                minimum = "0.75".toBigDecimal()
+                minimum = "0.80".toBigDecimal()
             }
         }
     }
@@ -111,6 +114,19 @@ val verifyNoGuavaInMain by tasks.registering {
     }
 }
 
+val verifyNoRuntimeDependencies by tasks.registering {
+    group = "verification"
+    description = "Fails if the library declares any compile or runtime dependency."
+    val compileDeps = configurations.compileClasspath
+    val runtimeDeps = configurations.runtimeClasspath
+    doLast {
+        val files = compileDeps.get().files + runtimeDeps.get().files
+        if (files.isNotEmpty()) {
+            throw GradleException("Lava must have no dependencies, found:\n" + files.joinToString("\n"))
+        }
+    }
+}
+
 tasks.check {
-    dependsOn(verifyNoGuavaInMain, tasks.jacocoTestCoverageVerification)
+    dependsOn(verifyNoGuavaInMain, verifyNoRuntimeDependencies, tasks.jacocoTestCoverageVerification, tasks.javadoc)
 }

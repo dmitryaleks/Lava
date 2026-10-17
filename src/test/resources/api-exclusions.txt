@@ -1,5 +1,58 @@
 // API parity exclusions: <lava member id> -- <reason>
-// See ApiParityTest for the id format (Type#<type>, Type#name(erased,params), Type#field).
+// Ids: Type#<type> (header), Type#name(erased,params), Type#field, or a whole Type.
+// Every intentional difference from Guava 27.0.1 is listed here; ApiParityTest fails on any
+// unlisted difference and on any stale entry.
 
-// util.concurrent (subset ports)
+// ---- util.concurrent: Lava ports only what the cache API exposes (see util.concurrent package docs)
 com.simplelibs.lava.util.concurrent.Futures#<type> -- Guava's superclass GwtFuturesCatchingSpecialization is a package-private GWT artifact
+com.simplelibs.lava.util.concurrent.Futures$FutureCombiner -- not ported: Futures combinators are outside the single-threaded subset
+com.simplelibs.lava.util.concurrent.Futures#addCallback(com.simplelibs.lava.util.concurrent.ListenableFuture,com.simplelibs.lava.util.concurrent.FutureCallback,java.util.concurrent.Executor) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#allAsList(com.simplelibs.lava.util.concurrent.ListenableFuture[]) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#allAsList(java.lang.Iterable) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#catching(com.simplelibs.lava.util.concurrent.ListenableFuture,java.lang.Class,java.util.function.Function,java.util.concurrent.Executor) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#catchingAsync(com.simplelibs.lava.util.concurrent.ListenableFuture,java.lang.Class,com.simplelibs.lava.util.concurrent.AsyncFunction,java.util.concurrent.Executor) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#getChecked(java.util.concurrent.Future,java.lang.Class) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#getChecked(java.util.concurrent.Future,java.lang.Class,long,java.util.concurrent.TimeUnit) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#getUnchecked(java.util.concurrent.Future) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#immediateCheckedFuture(java.lang.Object) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#immediateFailedCheckedFuture(java.lang.Exception) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#inCompletionOrder(java.lang.Iterable) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#lazyTransform(java.util.concurrent.Future,java.util.function.Function) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#makeChecked(com.simplelibs.lava.util.concurrent.ListenableFuture,java.util.function.Function) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#nonCancellationPropagating(com.simplelibs.lava.util.concurrent.ListenableFuture) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#scheduleAsync(com.simplelibs.lava.util.concurrent.AsyncCallable,long,java.util.concurrent.TimeUnit,java.util.concurrent.ScheduledExecutorService) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#submitAsync(com.simplelibs.lava.util.concurrent.AsyncCallable,java.util.concurrent.Executor) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#successfulAsList(com.simplelibs.lava.util.concurrent.ListenableFuture[]) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#successfulAsList(java.lang.Iterable) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#transform(com.simplelibs.lava.util.concurrent.ListenableFuture,java.util.function.Function,java.util.concurrent.Executor) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#transformAsync(com.simplelibs.lava.util.concurrent.ListenableFuture,com.simplelibs.lava.util.concurrent.AsyncFunction,java.util.concurrent.Executor) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#whenAllComplete(com.simplelibs.lava.util.concurrent.ListenableFuture[]) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#whenAllComplete(java.lang.Iterable) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#whenAllSucceed(com.simplelibs.lava.util.concurrent.ListenableFuture[]) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#whenAllSucceed(java.lang.Iterable) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.Futures#withTimeout(com.simplelibs.lava.util.concurrent.ListenableFuture,long,java.util.concurrent.TimeUnit,java.util.concurrent.ScheduledExecutorService) -- not ported: Futures keeps only immediate*/getDone (single-threaded subset)
+com.simplelibs.lava.util.concurrent.MoreExecutors#addDelayedShutdownHook(java.util.concurrent.ExecutorService,long,java.util.concurrent.TimeUnit) -- not ported: MoreExecutors keeps only directExecutor (single-threaded subset)
+com.simplelibs.lava.util.concurrent.MoreExecutors#getExitingExecutorService(java.util.concurrent.ThreadPoolExecutor) -- not ported: MoreExecutors keeps only directExecutor (single-threaded subset)
+com.simplelibs.lava.util.concurrent.MoreExecutors#getExitingExecutorService(java.util.concurrent.ThreadPoolExecutor,long,java.util.concurrent.TimeUnit) -- not ported: MoreExecutors keeps only directExecutor (single-threaded subset)
+com.simplelibs.lava.util.concurrent.MoreExecutors#getExitingScheduledExecutorService(java.util.concurrent.ScheduledThreadPoolExecutor) -- not ported: MoreExecutors keeps only directExecutor (single-threaded subset)
+com.simplelibs.lava.util.concurrent.MoreExecutors#getExitingScheduledExecutorService(java.util.concurrent.ScheduledThreadPoolExecutor,long,java.util.concurrent.TimeUnit) -- not ported: MoreExecutors keeps only directExecutor (single-threaded subset)
+com.simplelibs.lava.util.concurrent.MoreExecutors#listeningDecorator(java.util.concurrent.ExecutorService) -- not ported: MoreExecutors keeps only directExecutor (single-threaded subset)
+com.simplelibs.lava.util.concurrent.MoreExecutors#listeningDecorator(java.util.concurrent.ScheduledExecutorService) -- not ported: MoreExecutors keeps only directExecutor (single-threaded subset)
+com.simplelibs.lava.util.concurrent.MoreExecutors#newDirectExecutorService() -- not ported: MoreExecutors keeps only directExecutor (single-threaded subset)
+com.simplelibs.lava.util.concurrent.MoreExecutors#newSequentialExecutor(java.util.concurrent.Executor) -- not ported: MoreExecutors keeps only directExecutor (single-threaded subset)
+com.simplelibs.lava.util.concurrent.MoreExecutors#platformThreadFactory() -- not ported: MoreExecutors keeps only directExecutor (single-threaded subset)
+com.simplelibs.lava.util.concurrent.MoreExecutors#shutdownAndAwaitTermination(java.util.concurrent.ExecutorService,long,java.util.concurrent.TimeUnit) -- not ported: MoreExecutors keeps only directExecutor (single-threaded subset)
+
+// ---- collect: minimal Multimap family (Multiset and ImmutableListMultimap are not ported)
+com.simplelibs.lava.collect.Multimap#keys() -- returns Multiset, which Lava does not port
+com.simplelibs.lava.collect.ImmutableMultimap#keys() -- returns ImmutableMultiset, which Lava does not port
+com.simplelibs.lava.collect.ImmutableMultimap$Builder -- package-private base of ImmutableSetMultimap.Builder; Guava's public one builds an ImmutableListMultimap
+com.simplelibs.lava.collect.ImmutableMultimap#builder() -- not ported: Guava creates an ImmutableListMultimap; use ImmutableSetMultimap
+com.simplelibs.lava.collect.ImmutableMultimap#copyOf(com.simplelibs.lava.collect.Multimap) -- not ported: Guava creates an ImmutableListMultimap; use ImmutableSetMultimap
+com.simplelibs.lava.collect.ImmutableMultimap#copyOf(java.lang.Iterable) -- not ported: Guava creates an ImmutableListMultimap; use ImmutableSetMultimap
+com.simplelibs.lava.collect.ImmutableMultimap#of() -- not ported: Guava creates an ImmutableListMultimap; use ImmutableSetMultimap
+com.simplelibs.lava.collect.ImmutableMultimap#of(java.lang.Object,java.lang.Object) -- not ported: Guava creates an ImmutableListMultimap; use ImmutableSetMultimap
+com.simplelibs.lava.collect.ImmutableMultimap#of(java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object) -- not ported: Guava creates an ImmutableListMultimap; use ImmutableSetMultimap
+com.simplelibs.lava.collect.ImmutableMultimap#of(java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object) -- not ported: Guava creates an ImmutableListMultimap; use ImmutableSetMultimap
+com.simplelibs.lava.collect.ImmutableMultimap#of(java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object) -- not ported: Guava creates an ImmutableListMultimap; use ImmutableSetMultimap
+com.simplelibs.lava.collect.ImmutableMultimap#of(java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object) -- not ported: Guava creates an ImmutableListMultimap; use ImmutableSetMultimap

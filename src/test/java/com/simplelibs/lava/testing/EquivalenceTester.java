@@ -38,6 +38,13 @@ public final class EquivalenceTester<T> {
   }
 
   public EquivalenceTester<T> test() {
+    for (int run = 0; run < 3; run++) { // repeated like guava-testlib's REPETITIONS
+      testOnce();
+    }
+    return this;
+  }
+
+  private void testOnce() {
     for (int g = 0; g < groups.size(); g++) {
       for (T a : groups.get(g)) {
         assertTrue(equivalence.equivalent(a, a), () -> a + " must be equivalent to itself");
@@ -57,6 +64,5 @@ public final class EquivalenceTester<T> {
       }
     }
     assertTrue(equivalence.equivalent(null, null), "null must be equivalent to null");
-    return this;
   }
 }

@@ -72,42 +72,6 @@ public class ExecutionListTest extends LavaTestCase {
   }
 
   @Test
-  public void testExecute_idempotentConcurrently() throws InterruptedException {
-    final CountDownLatch okayToRun = new CountDownLatch(1);
-    final AtomicInteger runCalled = new AtomicInteger();
-    list.add(
-        new Runnable() {
-          @Override
-          public void run() {
-            try {
-              okayToRun.await();
-            } catch (InterruptedException e) {
-              Thread.currentThread().interrupt();
-              throw new RuntimeException(e);
-            }
-            runCalled.getAndIncrement();
-          }
-        },
-        directExecutor());
-    Runnable execute =
-        new Runnable() {
-          @Override
-          public void run() {
-            list.execute();
-          }
-        };
-    Thread thread1 = new Thread(execute);
-    Thread thread2 = new Thread(execute);
-    thread1.start();
-    thread2.start();
-    assertEquals(0, runCalled.get());
-    okayToRun.countDown();
-    thread1.join();
-    thread2.join();
-    assertEquals(1, runCalled.get());
-  }
-
-  @Test
   public void testAddAfterRun() throws Exception {
     // Run the previous test
     testRunOnPopulatedList();
@@ -168,4 +132,71 @@ public class ExecutionListTest extends LavaTestCase {
           throw new RuntimeException();
         }
       };
+
+  /** Lava: a listener that adds another listener while executing; the new one runs at once. */
+  @Test
+  public void testAddDuringExecute_runsImmediately() {
+    StringBuilder order = new StringBuilder();
+    list.add(() -> order.append('A'), directExecutor());
+    list.add(
+        () -> {
+          order.append('B');
+          list.add(() -> order.append('b'), directExecutor());
+        },
+        directExecutor());
+    list.add(() -> order.append('C'), directExecutor());
+    list.execute();
+    assertEquals("ABbC", order.toString());
+    list.add(() -> order.append('D'), directExecutor());
+    assertEquals("ABbCD", order.toString());
+  }
+
+  /** Lava: a listener that calls execute() again while executing is a no-op. */
+  @Test
+  public void testExecuteDuringExecute_isNoOp() {
+    AtomicInteger runs = new AtomicInteger();
+    list.add(
+        () -> {
+          runs.incrementAndGet();
+          list.execute();
+        },
+        directExecutor());
+    list.add(runs::incrementAndGet, directExecutor());
+    list.execute();
+    assertEquals(2, runs.get());
+  }
+
+  /** Lava: RuntimeExceptions from executors are logged and the remaining listeners still run. */
+  @Test
+  public void testRuntimeExceptionFromExecutor_otherListenersStillRun() {
+    AtomicInteger runs = new AtomicInteger();
+    list.add(runs::incrementAndGet, directExecutor());
+    list.add(
+        () -> {},
+        command -> {
+          throw new IllegalStateException("rejected");
+        });
+    list.add(runs::incrementAndGet, directExecutor());
+    list.execute();
+    assertEquals(2, runs.get());
+  }
+
+  /** Lava: Errors are not swallowed; they propagate out of execute(), as in Guava. */
+  @Test
+  public void testErrorFromListener_propagates() {
+    AtomicInteger runs = new AtomicInteger();
+    list.add(
+        () -> {
+          throw new AssertionError("listener error");
+        },
+        directExecutor());
+    list.add(runs::incrementAndGet, directExecutor());
+    try {
+      list.execute();
+      fail("Expected AssertionError");
+    } catch (AssertionError expected) {
+      assertEquals("listener error", expected.getMessage());
+    }
+    assertEquals(0, runs.get());
+  }
 }

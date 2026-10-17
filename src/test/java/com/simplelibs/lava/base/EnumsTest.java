@@ -225,4 +225,15 @@ public class EnumsTest extends LavaTestCase {
     }
     return urls;
   }
+
+  /** Lava: stringConverter equality is by enum class. */
+  @Test
+  public void testStringConverter_equalsAndHashCode() {
+    new com.simplelibs.lava.testing.EqualsTester()
+        .addEqualityGroup(Enums.stringConverter(TestEnum.class), Enums.stringConverter(TestEnum.class))
+        .addEqualityGroup(Enums.stringConverter(OtherEnum.class))
+        .addEqualityGroup(Enums.stringConverter(TestEnum.class).reverse())
+        .testEquals();
+    assertEquals(TestEnum.class.hashCode(), Enums.stringConverter(TestEnum.class).hashCode());
+  }
 }

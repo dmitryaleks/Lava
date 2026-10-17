@@ -132,14 +132,51 @@ class FuturesTest {
   }
 
   @Test
-  void getDone_restoresInterruptFlag() throws Exception {
+  void getDone_retriesAfterInterruptAndRestoresFlag() throws Exception {
+    // A done future whose first get() is interrupted, like a Future racing an interrupt.
+    java.util.concurrent.Future<String> future =
+        new java.util.concurrent.CompletableFuture<String>() {
+          private boolean interruptedOnce;
+
+          @Override
+          public String get() throws InterruptedException, ExecutionException {
+            if (!interruptedOnce) {
+              interruptedOnce = true;
+              throw new InterruptedException();
+            }
+            return super.get();
+          }
+        };
+    ((java.util.concurrent.CompletableFuture<String>) future).complete("x");
+    try {
+      assertThat(Futures.getDone(future)).isEqualTo("x");
+      assertThat(Thread.currentThread().isInterrupted()).isTrue();
+    } finally {
+      Thread.interrupted();
+    }
+  }
+
+  @Test
+  void immediateFailedAndCancelledFutures_honourInterruptLikeGuava() {
+    for (ListenableFuture<?> future :
+        List.of(
+            Futures.immediateFailedFuture(new Exception()), Futures.immediateCancelledFuture())) {
+      Thread.currentThread().interrupt();
+      try {
+        assertThatThrownBy(future::get).isInstanceOf(InterruptedException.class);
+        assertThat(Thread.currentThread().isInterrupted()).isFalse();
+      } finally {
+        Thread.interrupted();
+      }
+    }
+    // Successful immediate futures ignore the flag, as in Guava.
     Thread.currentThread().interrupt();
     try {
-      ListenableFutureTask<String> task = ListenableFutureTask.create(() -> "x");
-      task.run();
-      // FutureTask.get() does not throw InterruptedException once done, so the flag survives.
-      assertThat(Futures.getDone(task)).isEqualTo("x");
+      assertThat(Futures.immediateFuture("a").isDone()).isTrue();
+      assertThat(Futures.getDone(Futures.immediateFuture("a"))).isEqualTo("a");
       assertThat(Thread.currentThread().isInterrupted()).isTrue();
+    } catch (ExecutionException e) {
+      throw new AssertionError(e);
     } finally {
       Thread.interrupted();
     }

@@ -334,9 +334,6 @@ public final class Doubles {
    * specified by {@link Double#toString(double)}, and separated by {@code separator}. For example,
    * {@code join("-", 1.0, 2.0, 3.0)} returns the string {@code "1.0-2.0-3.0"}.
    *
-   * <p>Note that {@link Double#toString(double)} formats {@code double} differently in GWT
-   * sometimes. In the previous example, it returns the string {@code "1-2-3"}.
-   *
    * @param separator the text that should appear between consecutive values in the resulting string
    *     (but not at the start or end)
    * @param array an array of {@code double} values, possibly empty
@@ -441,7 +438,7 @@ public final class Doubles {
    * more efficient.
    *
    * @throws IndexOutOfBoundsException if {@code fromIndex < 0}, {@code toIndex > array.length}, or
-   *     {@code toIndex > fromIndex}
+   *     {@code toIndex < fromIndex}
    * @since 23.1
    */
   public static void reverse(double[] array, int fromIndex, int toIndex) {
@@ -459,7 +456,7 @@ public final class Doubles {
    * value in the manner of {@link Number#doubleValue}.
    *
    * <p>Elements are copied from the argument collection as if by {@code collection.toArray()}.
-   * Calling this method is as thread-safe as calling that method.
+   * The copy is made with that method.
    *
    * @param collection a collection of {@code Number} instances
    * @return an array containing the same values as {@code collection}, in the same order, converted

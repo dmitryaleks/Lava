@@ -3,7 +3,6 @@ package com.simplelibs.lava.testing;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.AnnotatedArrayType;
 import java.lang.reflect.AnnotatedType;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
@@ -235,20 +234,6 @@ public final class NullPointerTester {
   private static boolean isNullableAnnotation(Annotation a) {
     String name = a.annotationType().getSimpleName();
     return name.equals("Nullable") || name.equals("CheckForNull");
-  }
-
-  /** Returns true if the array component of a varargs parameter is annotated nullable. */
-  static boolean isNullableComponent(Parameter p) {
-    if (p.getAnnotatedType() instanceof AnnotatedArrayType) {
-      for (Annotation a :
-          ((AnnotatedArrayType) p.getAnnotatedType()).getAnnotatedGenericComponentType()
-              .getAnnotations()) {
-        if (isNullableAnnotation(a)) {
-          return true;
-        }
-      }
-    }
-    return false;
   }
 
   private Object defaultValue(Class<?> type, Executable member) {

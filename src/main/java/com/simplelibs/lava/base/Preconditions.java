@@ -84,19 +84,19 @@ import java.util.logging.Logger;
  * which are <i>not the caller's fault</i>. Doing so is <b>not recommended</b> because it is
  * misleading to future readers of the code and of stack traces. See <a
  * href="https://github.com/google/guava/wiki/ConditionalFailuresExplained">Conditional failures
- * explained</a> in the Guava User Guide for more advice. Notably, {@code Verify} offers assertions
- * similar to those in this class for non-precondition checks.
+ * explained</a> in the Guava User Guide for more advice. (Guava's {@code Verify}, which offers
+ * assertions similar to those in this class for non-precondition checks, is not ported to Lava.)
  *
  * <h2>{@code java.util.Objects.requireNonNull()}</h2>
  *
  * <p>Projects which use Lava should generally avoid the use of {@link
  * java.util.Objects#requireNonNull(Object)}. Instead, use whichever of {@link
- * #checkNotNull(Object)} or {@code Verify.verifyNotNull(Object)} is appropriate to the situation.
+ * #checkNotNull(Object)} or an explicit verification is appropriate to the situation.
  * (The same goes for the message-accepting overloads.)
  *
  * <h2>Only {@code %s} is supported</h2>
  *
- * <p>{@code Preconditions} uses {@code Strings.lenientFormat} to format error message template
+ * <p>{@code Preconditions} uses Guava's {@code Strings.lenientFormat} algorithm to format error message template
  * strings. This only supports the {@code "%s"} specifier, not the full range of {@link
  * java.util.Formatter} specifiers. However, note that if the number of arguments does not match the
  * number of occurrences of {@code "%s"} in the format string, {@code Preconditions} will still

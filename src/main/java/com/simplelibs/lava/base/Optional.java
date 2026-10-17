@@ -130,7 +130,7 @@ public abstract class Optional<T> implements Serializable {
    * Returns the equivalent {@code java.util.Optional} value to the given {@code
    * com.simplelibs.lava.base.Optional}, or {@code null} if the argument is null.
    *
-   * <p>If {@code googleOptional} is known to be non-null, use {@code googleOptional.toJavaUtil()}
+   * <p>If {@code lavaOptional} is known to be non-null, use {@code lavaOptional.toJavaUtil()}
    * instead.
    *
    * <p>Unfortunately, the method reference {@code Optional::toJavaUtil} will not work, because it
@@ -140,8 +140,8 @@ public abstract class Optional<T> implements Serializable {
    * @since 21.0
    */
   public static <T> java.util.@Nullable Optional<T> toJavaUtil(
-      @Nullable Optional<T> googleOptional) {
-    return googleOptional == null ? null : googleOptional.toJavaUtil();
+      @Nullable Optional<T> lavaOptional) {
+    return lavaOptional == null ? null : lavaOptional.toJavaUtil();
   }
 
   /**

@@ -55,10 +55,10 @@ abstract class ImmediateFuture<V> implements ListenableFuture<V> {
   }
 
   @Override
-  public abstract V get() throws ExecutionException;
+  public abstract V get() throws InterruptedException, ExecutionException;
 
   @Override
-  public V get(long timeout, TimeUnit unit) throws ExecutionException {
+  public V get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException {
     checkNotNull(unit);
     return get();
   }
@@ -101,8 +101,12 @@ abstract class ImmediateFuture<V> implements ListenableFuture<V> {
       this.thrown = thrown;
     }
 
+    /** Like Guava's {@code AbstractFuture}, honours a pending interrupt before reporting. */
     @Override
-    public V get() throws ExecutionException {
+    public V get() throws InterruptedException, ExecutionException {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       throw new ExecutionException(thrown);
     }
 
@@ -113,8 +117,12 @@ abstract class ImmediateFuture<V> implements ListenableFuture<V> {
   }
 
   static final class ImmediateCancelledFuture<V> extends ImmediateFuture<V> {
+    /** Like Guava's {@code AbstractFuture}, honours a pending interrupt before reporting. */
     @Override
-    public V get() {
+    public V get() throws InterruptedException {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       throw new CancellationException("Task was cancelled.");
     }
 

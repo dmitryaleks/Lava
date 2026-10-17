@@ -35,10 +35,14 @@ JUnit 5.11.4 and AssertJ 3.26.3 are already in the Gradle cache.
 - **Dropped annotations:** `@GwtCompatible/@GwtIncompatible`, `@J2ObjCIncompatible`, `@Beta`,
   `@CanIgnoreReturnValue`, `@VisibleForTesting`, `@LazyInit`, `@Weak`, `@RetainedWith`, `@DoNotMock`.
   `@Deprecated` is kept wherever Guava has it.
-- **Thread-safety contract:** every class Javadoc and every `package-info.java` says "not thread-safe;
-  confine to one thread". Callbacks through user-supplied `Executor`s (AsyncEventBus,
-  `RemovalListeners.asynchronous`, `CacheLoader.asyncReloading`) must run on that same thread, for
-  example a direct executor or a queue the app loop drains.
+- **Thread-safety contract** *(revised after the M1 review)*: every `package-info.java` states
+  that Lava is single-threaded. Classes with mutable state (caches, the event bus, mutable views,
+  `ExecutionList`, the `Enums` constant cache) also say so in their class Javadoc. Immutable
+  value types (`Optional`, `Equivalence`, immutable collections) are inherently safe to share and
+  carry no such note. Callbacks through user-supplied `Executor`s (AsyncEventBus,
+  `RemovalListeners.asynchronous`, `CacheLoader.asyncReloading`, `ListenableFutureTask`) must run
+  on the owning thread, for example a direct executor or a queue the app loop drains. Thread-pool
+  executors, including `Executors.newSingleThreadExecutor()`, are explicitly unsupported.
 - **Licensing:** the code is derived from Apache-2.0 Guava. Keep "Copyright (C) The Guava Authors"
   headers, add a "Modified for Lava" note, and ship `LICENSE` (copied from Guava's `COPYING`) plus a short `NOTICE`.
 - **Serializable** where Guava is (immutable collections, Optional, `Doubles.asList`, entries,
@@ -47,12 +51,13 @@ JUnit 5.11.4 and AssertJ 3.26.3 are already in the Gradle cache.
 - **Git:** run `git init`, add the remote `origin = https://github.com/dmitryaleks/Lava` (requested by
   the user), and commit and push after each milestone so the reviewer sub-agent works on real diffs.
   `.gitignore` gets `guava-27.0.1/` and `guava-27.0.1.zip` (reference material, 8 MB+).
-- **Compiler and Javadoc policy:** main code compiles with `-Xlint:all -Werror`. Guava-faithful spots get
-  targeted `@SuppressWarnings` (`overrides` on `Converter`/`Equivalence`-style equals-only overrides,
-  `unchecked`/`rawtypes` where Guava uses them, `deprecation` on internal calls). If a lint category
-  turns out to be systematically noisy, it is disabled explicitly and recorded here. Javadoc runs with
-  `-Xdoclint:all,-missing`. Ported Javadoc is adapted: links to Guava classes that aren't ported become
-  `{@code …}`.
+- **Compiler and Javadoc policy** *(revised in M3)*: main code compiles with `-Xlint:all
+  -Xlint:-serial -Xlint:-rawtypes -Xlint:-unchecked -Xlint:-varargs -Werror`. Guava-derived code
+  systematically triggers those four categories: internal serializable classes without
+  `serialVersionUID`, overridable generic varargs, and raw types in reflection-based
+  serialization. Every other category is an error. `check` also runs `javadoc` with
+  `-Xdoclint:all,-missing`. Ported Javadoc is adapted: links to Guava classes that aren't ported
+  become `{@code …}`, and `<h3>` becomes `<h2>`.
 - **Shared internals first:** `ImmutableMap` and `ImmutableList` (M3) need `Maps.equalsImpl`/`toStringImpl`,
   `Sets.hashCodeImpl`/`equalsImpl` and `Lists.equalsImpl`/`hashCodeImpl`/`indexOfImpl`. M3 therefore
   creates `Maps`, `Lists` and a package-private `Sets` containing those package-private helpers. M4 and M5
@@ -102,9 +107,12 @@ src/test/java/com/simplelibs/lava/...           same packages (white-box access 
    - Test deps: `platform("org.junit:junit-bom:5.11.4")`, `junit-jupiter`, `testRuntimeOnly("org.junit.platform:junit-platform-launcher")`,
      `org.assertj:assertj-core:3.26.3`, **`com.google.guava:guava:27.0.1-jre` (testImplementation only)**.
    - `tasks.test { useJUnitPlatform() }`, `jacocoTestReport`, plus `jacocoTestCoverageVerification`
-     (≥ 85% line and ≥ 75% branch on main), wired into `check`.
+     (≥ 85% line and ≥ 80% branch on main; it was briefly 90/85 after the M1 review, then reset in
+     M3 once whole Guava files were ported), wired into `check`. Dead internal helper code that
+     Lava never calls is pruned, not left untested.
    - **Guava-free guard:** Guava is only on the test classpath, so main can't compile against it.
-     Add a `verifyNoGuavaInMain` task as well. It fails if `src/main` mentions `com.google.` or
+     Add a `verifyNoGuavaInMain` task, plus `verifyNoRuntimeDependencies` (added after the M1 review),
+     which asserts that the compile and runtime classpaths are empty. It fails if `src/main` mentions `com.google.` or
      `org.checkerframework.` anywhere, including FQNs inside Javadoc and strings. Wire it into `check`.
 3. Delete `src/main/kotlin/Main.kt` and the Kotlin plugin, and keep `settings.gradle.kts` (foojay resolver). Run `./gradlew check` on an empty skeleton with one smoke test.
 
@@ -140,7 +148,7 @@ Source references: `guava/src/com/google/common/base/{Converter,Optional,Absent,
   - `doForward`/`doBackward`, `convert`, `convertAll` (a lazy view that delegates `remove`), the cached
     `reverse()` (ReverseConverter: equals, `~hash`, `".reverse()"`), and `andThen(Converter)`.
     `andThen(Converter)` is an *overload* of the JDK `andThen(Function)`, not an override.
-  - deprecated `apply`, `from(f, g)`, `identity()` (singleton, `readResolve`), and the package-private
+  - the deprecated `apply`; `from(f, g)`; `identity()` (singleton, `readResolve`); and the package-private
     `Converter(boolean handleNullAutomatically)`.
   - Null handling: null maps to null, and a non-null input that maps to null throws NPE.
 - **`Optional<T>` (abstract, pkg-private ctor) with `Absent`/`Present`.** Port the full API, including
@@ -524,7 +532,9 @@ Public types are ported one-to-one with exact signatures, per `guava/src/com/goo
 
 ## Migration notes (changes for clients beyond swapping imports; also listed in README and exclusions)
 - `com.google.common.base.{Function,Supplier,Predicate}` → `java.util.function.*`. Lambdas and method refs
-  don't change. **Anonymous `Predicate` classes must rename `apply` to `test`.** Anonymous Function and
+  don't change. **Anonymous `Predicate` classes must rename `apply` to `test`, and callers of
+  `.apply(x)` on a `Predicate` that Lava returns (for example `Equivalence.equivalentTo(t)`) must call
+  `.test(x)`.** Anonymous Function and
   Supplier classes are unaffected, because their method names are the same.
 - Not thread-safe. `CacheBuilder.concurrencyLevel` is accepted but has no effect.
 - Omitted members: `Multimap.keys()`/`ImmutableMultimap.keys()` (no Multiset), `ImmutableMultimap`

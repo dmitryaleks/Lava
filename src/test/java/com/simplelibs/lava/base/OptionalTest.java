@@ -351,4 +351,16 @@ public final class OptionalTest extends LavaTestCase {
     npTester.testAllPublicInstanceMethods(Optional.absent());
     npTester.testAllPublicInstanceMethods(Optional.of("training"));
   }
+
+  /** Lava: presentInstances is a lazy view of its input. */
+  @Test
+  public void testPresentInstances_isLazyView() {
+    List<Optional<String>> optionals = new java.util.ArrayList<>();
+    Iterable<String> onlyPresent = Optional.presentInstances(optionals);
+    assertThat(onlyPresent).isEmpty();
+    optionals.add(Optional.of("a"));
+    optionals.add(Optional.<String>absent());
+    optionals.add(Optional.of("b"));
+    assertThat(onlyPresent).containsExactly("a", "b");
+  }
 }

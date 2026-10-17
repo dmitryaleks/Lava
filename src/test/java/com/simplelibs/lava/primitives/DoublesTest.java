@@ -718,4 +718,36 @@ public class DoublesTest extends LavaTestCase {
     } catch (NullPointerException expected) {
     }
   }
+
+  /** Lava: -0.0 and NaN payloads in sortDescending (Guava's test uses an int -0 literal). */
+  @Test
+  public void testSortDescending_signedZeroAndNaN() {
+    double[] input = {0.0, -0.0, Double.NaN, -0.0, 0.0, Double.NEGATIVE_INFINITY};
+    Doubles.sortDescending(input);
+    assertTrue(Double.isNaN(input[0]));
+    assertEquals(Double.doubleToRawLongBits(0.0), Double.doubleToRawLongBits(input[1]));
+    assertEquals(Double.doubleToRawLongBits(0.0), Double.doubleToRawLongBits(input[2]));
+    assertEquals(Double.doubleToRawLongBits(-0.0), Double.doubleToRawLongBits(input[3]));
+    assertEquals(Double.doubleToRawLongBits(-0.0), Double.doubleToRawLongBits(input[4]));
+    assertEquals(Double.NEGATIVE_INFINITY, input[5], 0.0);
+  }
+
+  /** Lava: the tryParse regex is identical to Guava's (Guava is the test oracle). */
+  @Test
+  public void testFloatingPointPatternIdenticalToGuava() throws Exception {
+    java.lang.reflect.Field field =
+        com.google.common.primitives.Doubles.class.getDeclaredField("FLOATING_POINT_PATTERN");
+    field.setAccessible(true);
+    Pattern guava = (Pattern) field.get(null);
+    assertEquals(guava.pattern(), Doubles.FLOATING_POINT_PATTERN.pattern());
+    assertEquals(guava.flags(), Doubles.FLOATING_POINT_PATTERN.flags());
+  }
+
+  /** Lava: toString of the singleton converter and comparator. */
+  @Test
+  public void testSingletonToStrings() {
+    assertEquals("Doubles.stringConverter()", Doubles.stringConverter().toString());
+    assertEquals("Doubles.stringConverter().reverse()", Doubles.stringConverter().reverse().toString());
+    assertEquals("Doubles.lexicographicalComparator()", Doubles.lexicographicalComparator().toString());
+  }
 }

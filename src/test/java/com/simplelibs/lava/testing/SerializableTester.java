@@ -29,12 +29,14 @@ public final class SerializableTester {
     }
   }
 
-  /** Reserializes {@code object} and asserts the copy is equal with the same hash code. */
+  /**
+   * Reserializes {@code object} and asserts that the copy has the same class and is equal to it
+   * (checked with {@link EqualsTester}, so also with the same hash code).
+   */
   public static <T> T reserializeAndAssert(T object) {
     T copy = reserialize(object);
-    assertEquals(object, copy);
-    assertEquals(copy, object);
-    assertEquals(object.hashCode(), copy.hashCode());
+    new EqualsTester().addEqualityGroup(object, copy).testEquals();
+    assertEquals(object.getClass(), copy.getClass(), "reserialized object has a different class");
     return copy;
   }
 }

@@ -16,9 +16,9 @@ public final class GcFinalization {
 
   /** Runs the garbage collector until {@code condition} holds, or fails after a timeout. */
   public static void awaitDone(BooleanSupplier condition, String message) {
-    long deadline = System.currentTimeMillis() + TIMEOUT_MILLIS;
+    long deadline = System.nanoTime() + TIMEOUT_MILLIS * 1_000_000L;
     while (!condition.getAsBoolean()) {
-      if (System.currentTimeMillis() > deadline) {
+      if (System.nanoTime() - deadline > 0) {
         throw new AssertionError(message);
       }
       System.gc();

@@ -40,7 +40,7 @@ class DoubleArrayAsListTest {
   void readContract(int size) {
     double[] array = array(size);
     List<Double> list = Doubles.asList(array);
-    ListContract.assertReadContract(list, boxed(array));
+    ListContract.assertReadContract(list, boxed(array), 1e9);
     assertThat(list).isInstanceOf(RandomAccess.class);
   }
 
@@ -103,6 +103,41 @@ class DoubleArrayAsListTest {
   void emptySubListIsEmptyList(int size) {
     List<Double> list = Doubles.asList(array(size));
     assertThat(list.subList(1, 1)).isSameAs(java.util.Collections.emptyList());
-    assertThat(Arrays.asList(Doubles.toArray(list.subList(0, size)))).hasSize(1);
+    assertThat(Doubles.toArray(list.subList(0, size))).hasSize(size);
+  }
+
+  /** The DoubleArrayAsList quirks, pinned deterministically (Guava semantics). */
+  @org.junit.jupiter.api.Test
+  void quirks_primitiveEqualityNaNAndSignedZero() {
+    double[] array = {0.0, -0.0, Double.NaN, 1, 1};
+    List<Double> list = Doubles.asList(array);
+    // contains/indexOf use primitive ==: NaN is never found, -0.0 and 0.0 match each other.
+    assertThat(list.contains(Double.NaN)).isFalse();
+    assertThat(list.indexOf(Double.NaN)).isEqualTo(-1);
+    assertThat(list.indexOf(-0.0)).isEqualTo(0);
+    assertThat(list.lastIndexOf(0.0)).isEqualTo(1);
+    assertThat(list.indexOf(1.0)).isEqualTo(3);
+    assertThat(list.lastIndexOf(1.0)).isEqualTo(4);
+    assertThat(list.contains(null)).isFalse();
+    assertThat(list.indexOf(1)).isEqualTo(-1); // an Integer is not a Double
+    // The same queries on a sub-list only see its window.
+    List<Double> window = list.subList(1, 3); // [-0.0, NaN]
+    assertThat(window.indexOf(0.0)).isEqualTo(0);
+    assertThat(window.contains(1.0)).isFalse();
+    assertThat(window.indexOf(1.0)).isEqualTo(-1);
+    assertThat(window.lastIndexOf(1.0)).isEqualTo(-1);
+    assertThat(list.subList(3, 5).indexOf(0.0)).isEqualTo(-1);
+    assertThatThrownBy(() -> list.subList(1, 3).set(2, 9.0))
+        .isInstanceOf(IndexOutOfBoundsException.class);
+    assertThatThrownBy(() -> list.set(5, null))
+        .isInstanceOf(IndexOutOfBoundsException.class); // index checked before null
+    assertThatThrownBy(() -> list.set(0, null)).isInstanceOf(NullPointerException.class);
+    // equals between two asList views uses primitive != (so 0.0 == -0.0 and NaN != NaN) ...
+    assertThat(Doubles.asList(0.0)).isEqualTo(Doubles.asList(-0.0));
+    assertThat(Doubles.asList(0.0).hashCode()).isNotEqualTo(Doubles.asList(-0.0).hashCode());
+    assertThat(Doubles.asList(Double.NaN)).isNotEqualTo(Doubles.asList(Double.NaN));
+    // ... while equals against other lists uses Double.equals.
+    assertThat(Doubles.asList(Double.NaN)).isEqualTo(List.of(Double.NaN));
+    assertThat(Doubles.asList(0.0)).isNotEqualTo(List.of(-0.0));
   }
 }

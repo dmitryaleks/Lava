@@ -289,4 +289,11 @@ public class ConverterTest extends LavaTestCase {
     Converter<String, String> dumb = Converter.from(toStringFunction(), toStringFunction());
     SerializableTester.reserializeAndAssert(dumb);
   }
+
+  /** Lava: reverse() is cached, so repeated calls return the same instance. */
+  @Test
+  public void testReverseIsCached() {
+    assertSame(STR_TO_LONG.reverse(), STR_TO_LONG.reverse());
+    assertSame(STR_TO_LONG.reverse().reverse(), STR_TO_LONG);
+  }
 }

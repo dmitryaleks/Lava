@@ -1,7 +1,6 @@
 package com.simplelibs.lava.testing;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -22,8 +21,18 @@ public final class EqualsTester {
     return this;
   }
 
-  @SuppressWarnings({"SelfEquals", "EqualsIncompatibleType", "ObjectEqualsNull"})
+  /** Like guava-testlib, every check is repeated to catch unstable equals or hashCode. */
+  private static final int REPETITIONS = 3;
+
   public EqualsTester testEquals() {
+    for (int run = 0; run < REPETITIONS; run++) {
+      testEqualsOnce();
+    }
+    return this;
+  }
+
+  @SuppressWarnings({"SelfEquals", "EqualsIncompatibleType", "ObjectEqualsNull"})
+  private void testEqualsOnce() {
     Object unrelated = new Object() {
       @Override
       public String toString() {
@@ -34,7 +43,6 @@ public final class EqualsTester {
       List<Object> group = groups.get(g);
       for (Object item : group) {
         assertTrue(item.equals(item), () -> item + " must be equal to itself");
-        assertNotEquals(null, item, () -> item + " must not be equal to null");
         assertTrue(!item.equals(null), () -> item + ".equals(null) must be false");
         assertTrue(!item.equals(unrelated), () -> item + " must not equal an unrelated object");
         for (Object other : group) {
@@ -54,6 +62,5 @@ public final class EqualsTester {
         }
       }
     }
-    return this;
   }
 }

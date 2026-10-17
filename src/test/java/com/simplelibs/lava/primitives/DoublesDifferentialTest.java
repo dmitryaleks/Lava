@@ -47,19 +47,19 @@ class DoublesDifferentialTest {
   private static void same(String what, Callable<Object> guava, Callable<Object> lava) {
     Object g;
     Object l;
-    Class<?> gThrown = null;
-    Class<?> lThrown = null;
+    String gThrown = null;
+    String lThrown = null;
     try {
       g = guava.call();
     } catch (Exception e) {
       g = null;
-      gThrown = e.getClass();
+      gThrown = e.getClass().getName() + ": " + e.getMessage();
     }
     try {
       l = lava.call();
     } catch (Exception e) {
       l = null;
-      lThrown = e.getClass();
+      lThrown = e.getClass().getName() + ": " + e.getMessage();
     }
     assertThat(lThrown).as(what + " exception").isEqualTo(gThrown);
     assertThat(normalize(l)).as(what).isEqualTo(normalize(g));
@@ -76,9 +76,6 @@ class DoublesDifferentialTest {
         bits[i] = Double.doubleToRawLongBits(a[i]);
       }
       return Arrays.toString(bits);
-    }
-    if (o instanceof Integer) {
-      return Integer.signum((Integer) o) == 0 ? o : o; // exact ints compared as-is
     }
     return o;
   }
@@ -120,14 +117,14 @@ class DoublesDifferentialTest {
       int padding = random.nextInt(4) - 1;
       same(
           "ensureCapacity",
-          () -> com.google.common.primitives.Doubles.ensureCapacity(array.clone(), minLength, padding).length,
-          () -> Doubles.ensureCapacity(array.clone(), minLength, padding).length);
+          () -> com.google.common.primitives.Doubles.ensureCapacity(array.clone(), minLength, padding),
+          () -> Doubles.ensureCapacity(array.clone(), minLength, padding));
       same(
           "lexicographicalComparator",
           () -> Integer.signum(com.google.common.primitives.Doubles.lexicographicalComparator().compare(array, target)),
           () -> Integer.signum(Doubles.lexicographicalComparator().compare(array, target)));
-      int from = array.length == 0 ? 0 : random.nextInt(array.length + 2) - 1;
-      int to = array.length == 0 ? 0 : random.nextInt(array.length + 2) - 1;
+      int from = random.nextInt(array.length + 3) - 1;
+      int to = random.nextInt(array.length + 3) - 1;
       same(
           "sortDescending(range)",
           () -> {
@@ -150,6 +147,18 @@ class DoublesDifferentialTest {
           () -> {
             double[] copy = array.clone();
             Doubles.sortDescending(copy);
+            return copy;
+          });
+      same(
+          "reverse",
+          () -> {
+            double[] copy = array.clone();
+            com.google.common.primitives.Doubles.reverse(copy);
+            return copy;
+          },
+          () -> {
+            double[] copy = array.clone();
+            Doubles.reverse(copy);
             return copy;
           });
       same(
@@ -227,6 +236,36 @@ class DoublesDifferentialTest {
           "stringConverter.reverse",
           () -> com.google.common.primitives.Doubles.stringConverter().reverse().convert(d),
           () -> Doubles.stringConverter().reverse().convert(d));
+    }
+  }
+
+  @Test
+  void constantsAndToArrayOfArbitraryNumbers() {
+    assertThat(Doubles.BYTES).isEqualTo(com.google.common.primitives.Doubles.BYTES);
+    for (int i = 0; i < ROUNDS; i++) {
+      java.util.List<Number> numbers = new ArrayList<>();
+      int size = random.nextInt(6);
+      for (int j = 0; j < size; j++) {
+        switch (random.nextInt(5)) {
+          case 0:
+            numbers.add(random.nextInt());
+            break;
+          case 1:
+            numbers.add(random.nextLong());
+            break;
+          case 2:
+            numbers.add((float) randomDouble());
+            break;
+          case 3:
+            numbers.add(new java.math.BigDecimal(random.nextInt(1000)).movePointLeft(2));
+            break;
+          default:
+            numbers.add(random.nextInt(20) == 0 ? null : randomDouble());
+        }
+      }
+      same("toArray(" + numbers + ")",
+          () -> com.google.common.primitives.Doubles.toArray(numbers),
+          () -> Doubles.toArray(numbers));
     }
   }
 }
