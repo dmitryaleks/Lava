@@ -2027,10 +2027,7 @@ public class LocalCacheTest extends LavaTestCase {
 
   @Test
   public void testNullParameters() throws Exception {
-    // Lava: getOrDefault is ignored, because Guava's LocalCache overrides it with @Nullable
-    // parameters, whereas Lava inherits the unannotated default method of ConcurrentMap. The
-    // behaviour is the same, and checked below.
-    NullPointerTester tester = new NullPointerTester().ignore("getOrDefault");
+    NullPointerTester tester = new NullPointerTester();
     tester.testAllPublicInstanceMethods(makeLocalCache(createCacheBuilder()));
     CacheLoader<Object, Object> loader = identityLoader();
     tester.testAllPublicInstanceMethods(new LocalCache<Object, Object>(createCacheBuilder(), loader));

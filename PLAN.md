@@ -541,7 +541,12 @@ Public types are ported one-to-one with exact signatures, per `guava/src/com/goo
   static factories and `Builder`, and `Range.canonical(DiscreteDomain)`. Cache instances are not
   serializable.
 - `EventBus.register` of a class with a bad-arity `@Subscribe` method throws IAE directly, where Guava
-  wraps it in `UncheckedExecutionException`.
+  wraps it in `UncheckedExecutionException` (Errors from method discovery likewise propagate raw).
+- Added during implementation (see README and REVIEW.md): `ImmutableSetMultimap.Builder.orderValuesBy`
+  yields ordered `ImmutableSet`s (comparator-equal values collapse as in Guava); `Lists.partition` fixes
+  Guava's overflow for huge lists; caches run maintenance eagerly, deliver notifications before loaders
+  run, throw `IllegalStateException("Recursive load of: ...")` where Guava would block a single thread,
+  and fix Guava 27.0.1's stuck loading entries after a throwing compute or a compute returning null.
 - Logger names and `toString` strings that embed class names (`Enums.stringConverter(<fqcn>.class)`)
   carry the `com.simplelibs.lava` package.
 - Lava's serialized forms are not wire-compatible with Guava's.

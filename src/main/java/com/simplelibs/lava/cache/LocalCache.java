@@ -806,6 +806,12 @@ final class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<
     }
   }
 
+  @Override
+  public @Nullable V getOrDefault(@Nullable Object key, @Nullable V defaultValue) {
+    V result = get(key);
+    return (result != null) ? result : defaultValue;
+  }
+
   @Nullable V getIfPresent(Object key) {
     V value = get(checkNotNull(key));
     if (value == null) {
