@@ -1,0 +1,5 @@
+// API parity exclusions: <lava member id> -- <reason>
+// See ApiParityTest for the id format (Type#<type>, Type#name(erased,params), Type#field).
+
+// util.concurrent (subset ports)
+com.simplelibs.lava.util.concurrent.Futures#<type> -- Guava's superclass GwtFuturesCatchingSpecialization is a package-private GWT artifact

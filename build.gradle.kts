@@ -38,7 +38,7 @@ tasks.compileJava {
 
 tasks.compileTestJava {
     // Tests exercise deprecated mutators and raw types on purpose; keep the remaining lint visible.
-    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-deprecation", "-Xlint:-serial", "-Xlint:-rawtypes", "-Xlint:-unchecked"))
+    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-deprecation", "-Xlint:-serial", "-Xlint:-rawtypes", "-Xlint:-unchecked", "-Xlint:-removal", "-Xlint:-varargs"))
 }
 
 tasks.javadoc {
@@ -58,6 +58,11 @@ tasks.test {
     // MapsTest reflects into HashMap.table to verify capacity computations.
     jvmArgs("--add-opens", "java.base/java.util=ALL-UNNAMED")
     maxHeapSize = "1g"
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showStackTraces = true
+    }
     finalizedBy(tasks.jacocoTestReport)
 }
 
