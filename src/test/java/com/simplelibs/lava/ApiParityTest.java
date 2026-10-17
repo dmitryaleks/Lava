@@ -77,6 +77,13 @@ class ApiParityTest {
           "base.Optional",
           "base.Preconditions",
           "base.Ticker",
+          "eventbus.AllowConcurrentEvents",
+          "eventbus.AsyncEventBus",
+          "eventbus.DeadEvent",
+          "eventbus.EventBus",
+          "eventbus.Subscribe",
+          "eventbus.SubscriberExceptionContext",
+          "eventbus.SubscriberExceptionHandler",
           "primitives.Doubles",
           "util.concurrent.ExecutionError",
           "util.concurrent.ExecutionList",
@@ -358,6 +365,22 @@ class ApiParityTest {
     }
     if (c.isAnnotationPresent(Deprecated.class)) {
       sb.append("@Deprecated ");
+    }
+    if (c.isAnnotation()) {
+      java.lang.annotation.Retention retention = c.getAnnotation(java.lang.annotation.Retention.class);
+      java.lang.annotation.Target target = c.getAnnotation(java.lang.annotation.Target.class);
+      sb.append("@Retention(").append(retention == null ? "CLASS" : retention.value()).append(") ");
+      if (target != null) {
+        sb.append("@Target(")
+            .append(Arrays.stream(target.value()).map(Enum::name).sorted().collect(Collectors.joining(",")))
+            .append(") ");
+      }
+      if (c.isAnnotationPresent(java.lang.annotation.Documented.class)) {
+        sb.append("@Documented ");
+      }
+      if (c.isAnnotationPresent(java.lang.annotation.Inherited.class)) {
+        sb.append("@Inherited ");
+      }
     }
     sb.append(Modifier.toString(mods)).append(' ');
     sb.append(
